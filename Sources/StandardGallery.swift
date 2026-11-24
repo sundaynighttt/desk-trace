@@ -91,14 +91,8 @@ struct StandardGallery: View {
 
     private func thumbnailRow(_ item: CaptureRecord) -> some View {
         Button { selected = item } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                RecordThumbnail(record: item, selected: selected == item, mode: .standard)
-                Text(ArchiveText.clock.string(from: item.date))
-                    .font(.system(size: 10, weight: .medium)).monospacedDigit().lineLimit(1)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 3)
-                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
-            }.contentShape(Rectangle())
+            RecordThumbnail(record: item, selected: selected == item, mode: .standard)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain).id(item.id)
         .accessibilityLabel(item.kind.eventName + " " + ArchiveText.fullStamp.string(from: item.date))
