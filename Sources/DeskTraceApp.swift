@@ -15,7 +15,7 @@ struct DeskTraceApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1000, height: GalleryLayout.minimumHeight)
+        .defaultSize(width: 1000, height: GalleryLayout.standardOpeningHeight(windowWidth: 1000))
         .windowResizability(.contentSize)
         MenuBarExtra {
             StatusMenu(model: model)

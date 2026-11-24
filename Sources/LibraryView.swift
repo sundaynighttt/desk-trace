@@ -3,7 +3,8 @@ import SwiftUI
 
 struct LibraryView: View {
     @ObservedObject var model: DeskModel
-    @State var mode: GalleryMode = .mini
+    @State var mode: GalleryMode = .standard
+    @State private var windowClosed = false
     @State private var period: ArchivePeriod = .week
     @State private var referenceDate = Date()
     @State private var kind: CaptureKind?
@@ -72,7 +73,9 @@ struct LibraryView: View {
                 }.font(.callout).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, GalleryLayout.inset).padding(.vertical, 5)
             }
-            if mode == .standard {
+            if windowClosed {
+                Color.clear
+            } else if mode == .standard {
                 StandardGallery(index: index, feed: model.cameraFeed, period: $period,
                                 isFiltered: !model.records.isEmpty && (kind != nil || period != .all),
                                 resetFilters: { period = .all; kind = nil })
@@ -89,9 +92,12 @@ struct LibraryView: View {
         .foregroundStyle(.white)
         .background {
             ZStack {
-                WindowGlass(reduceTransparency: reduceTransparency, mode: mode) {
-                    model.cameraFeed.showPreview(false)
-                    mode = .mini
+                WindowGlass(reduceTransparency: reduceTransparency, mode: mode) { open in
+                    windowClosed = !open
+                    if !open {
+                        model.cameraFeed.showPreview(false)
+                        mode = .standard
+                    }
                 }
                 if reduceTransparency { Color(white: 0.14) }
                 else { Color.black.opacity(0.38) }

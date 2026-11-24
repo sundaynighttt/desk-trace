@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import CoreVideo
 import ImageIO
 import SwiftUI
@@ -212,8 +213,7 @@ struct Checks {
                 _ = try store.save(data, kind: minute.isMultiple(of: 3) ? .screen : .camera,
                                    at: now.addingTimeInterval(Double(-minute * 60)))
             }
-            let standard = DeskModel(store: store, prefs: prefs, cameraFeed: CameraFeed(requestAccess: { false }))
-            try checkStandard(standard, store: store, data: data, directory: directory)
+            try checkStandard(store: store, prefs: prefs, data: data, directory: directory)
             let empty = DeskModel(store: RecordStore(folder: root.appendingPathComponent("empty")), prefs: prefs)
             try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: GalleryLayout.minimumHeight)
         }
@@ -221,10 +221,14 @@ struct Checks {
     }
 
     @MainActor
-    static func checkStandard(_ model: DeskModel, store: RecordStore, data: Data, directory: URL) throws {
+    static func checkStandard(store: RecordStore, prefs: UserDefaults, data: Data, directory: URL) throws {
+        var cameraAllowed = false
+        let feed = CameraFeed(requestAccess: { cameraAllowed }, startCamera: { _ in })
+        let model = DeskModel(store: store, prefs: prefs, cameraFeed: feed)
         let size = CGSize(width: 960, height: 560)
-        let host = NSHostingView(rootView: LibraryView(model: model, mode: .standard))
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        let host = NSHostingView(rootView: LibraryView(model: model))
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
         window.contentView = host
         window.orderFrontRegardless()
         defer { window.orderOut(nil) }
@@ -233,6 +237,10 @@ struct Checks {
         func list(_ view: NSView) -> NSScrollView? {
             if let scroller = view as? NSScrollView { return scroller }
             return view.subviews.compactMap(list).first
+        }
+        func displayedSession(in view: NSView) -> AVCaptureSession? {
+            if let layer = view.layer as? AVCaptureVideoPreviewLayer { return layer.session }
+            return view.subviews.compactMap { displayedSession(in: $0) }.first
         }
         func click(_ point: CGPoint) throws {
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
@@ -272,7 +280,7 @@ struct Checks {
         }
         settle()
         let expectedHeight = GalleryLayout.standardOpeningHeight(windowWidth: size.width)
-        try expect(abs(window.contentLayoutRect.height - expectedHeight) <= 1, "standard window opens at the fitted 16:9 viewer height")
+        try expect(abs(window.contentLayoutRect.height - expectedHeight) <= 1, "default gallery opens in standard mode at the fitted viewer height")
         // An explicitly taller window must keep the overlay on the photo.
         window.setContentSize(size)
         settle()
@@ -303,11 +311,14 @@ struct Checks {
         settle()
         try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
                    "new capture preserves historical selection and reading position (was \(offset), now \(viewport.bounds.minY))")
-        let mediaWidth = frame.minX - GalleryLayout.gap - GalleryLayout.inset
-        let viewerTop = window.contentLayoutRect.maxY - 8 - GalleryLayout.filterHeight - GalleryLayout.gap
-        let mediaBottom = viewerTop - mediaWidth * 9 / 16
-        try click(CGPoint(x: frame.minX - 90, y: mediaBottom + 24))
-        try expect(try markerRow(snapshot()) == liveMark, "button over the photo restores live and the latest-record marker")
+        func clickLiveButton(for listFrame: CGRect) throws {
+            let mediaWidth = listFrame.minX - GalleryLayout.gap - GalleryLayout.inset
+            let viewerTop = window.contentLayoutRect.maxY - 8 - GalleryLayout.filterHeight - GalleryLayout.gap
+            let bottom = viewerTop - mediaWidth * 9 / 16
+            try click(CGPoint(x: listFrame.minX - 90, y: bottom + 24))
+        }
+        try clickLiveButton(for: frame)
+        try expect(try markerRow(snapshot()) == liveMark, "existing control over the photo's lower right restores live and the latest-record marker")
         for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
             window.setContentSize(CGSize(width: CGFloat(width), height: size.height))
             settle()
@@ -316,12 +327,28 @@ struct Checks {
             try expect(abs(scroll.frame.width - CGFloat(expected)) < 0.01,
                        "right archive uses even one-third width at " + String(width) + " points")
         }
+
+        // Closing while viewing a saved photo must release preview, even if the host is reused.
+        try click(scroll.convert(CGPoint(x: scroll.bounds.midX, y: scroll.bounds.midY), to: nil))
+        window.close()
+        settle()
+        try expect(feed.preview == nil && feed.previewIssue == nil, "closed gallery releases preview")
+        cameraAllowed = true
+        window.makeKeyAndOrderFront(nil)
+        settle()
+        guard let session = feed.preview, let reopened = list(host) else { throw AppProblem("일반 모드 재열기 실패") }
+        try expect(displayedSession(in: host) === session && !model.active, "reopening shows the camera without arming detection")
+        let reopenedList = reopened.convert(reopened.bounds, to: nil)
+        try click(CGPoint(x: reopenedList.midX, y: reopenedList.midY))
+        try expect(displayedSession(in: host) == nil && feed.preview === session, "a saved photo replaces the displayed preview")
+        try clickLiveButton(for: reopenedList)
+        try expect(displayedSession(in: host) === session && !model.active, "on-air button redisplays the same camera session")
     }
 
     @MainActor
     static func render(_ model: DeskModel, to url: URL, width: CGFloat, height: CGFloat) throws {
         let rect = CGRect(x: 0, y: 0, width: width, height: height)
-        let view = NSHostingView(rootView: LibraryView(model: model).environment(\.locale, Locale(identifier: "ko_KR")))
+        let view = NSHostingView(rootView: LibraryView(model: model, mode: .mini).environment(\.locale, Locale(identifier: "ko_KR")))
         let window = NSWindow(contentRect: rect, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view
         window.setContentSize(CGSize(width: width, height: height + 190))
