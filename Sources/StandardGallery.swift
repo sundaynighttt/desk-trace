@@ -101,6 +101,22 @@ struct StandardGallery: View {
         .accessibilityAddTraits(selected == item ? .isSelected : [])
     }
 
+    private func timestamp(_ title: String, date: Date? = nil, live: Bool = false) -> some View {
+        HStack(spacing: 6) {
+            if live {
+                Circle().fill(.green).frame(width: 6, height: 6).accessibilityHidden(true)
+            }
+            Text(title)
+            if let date { Text(ArchiveText.fullStamp.string(from: date)).monospacedDigit() }
+        }
+        .font(.system(size: 12, weight: .semibold))
+        .lineLimit(1).minimumScaleFactor(0.8)
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(.black.opacity(0.72), in: Capsule()).padding(10)
+        .accessibilityElement(children: .combine)
+        .allowsHitTesting(false)
+    }
+
     private var viewer: some View {
         let ratio = selected.flatMap { Picture.aspectRatio(at: $0.url) } ?? feed.displayRatio ?? GalleryLayout.defaultVideoAspect
         return Color.clear.aspectRatio(ratio, contentMode: .fit)
@@ -123,18 +139,18 @@ struct StandardGallery: View {
         .background {
             if selected == nil && feed.preview == nil { Color.black.opacity(0.56) }
         }
-        .overlay(alignment: .topLeading) {
-            HStack(spacing: 6) {
-                if let selected {
-                    Image(systemName: selected.kind.symbol)
-                    Text(ArchiveText.fullStamp.string(from: selected.date)).monospacedDigit()
-                } else {
-                    Image(systemName: "video")
-                    Text(feed.preview == nil ? "카메라" : "온에어")
+        .overlay(alignment: .topTrailing) {
+            if let selected {
+                timestamp("저장 사진", date: selected.date)
+            } else if feed.preview != nil {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    if let date = feed.previewFrameDate(at: .now) {
+                        timestamp("온에어", date: date, live: true)
+                    } else {
+                        timestamp("영상 대기")
+                    }
                 }
-            }.font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 9).padding(.vertical, 6)
-            .background(.black.opacity(0.72), in: Capsule()).padding(10)
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             if selected != nil {

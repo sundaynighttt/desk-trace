@@ -54,6 +54,11 @@ final class CameraFeed: ObservableObject {
         }
     }
 
+    func previewFrameDate(at now: Date) -> Date? {
+        guard preview != nil else { return nil }
+        return camera?.recentFrameDate(at: now)
+    }
+
     func beginDetection(minutes: Int, lastMotion: Date? = nil, onImage: @escaping @Sendable (CGImage, Date) -> Void,
                         onFailure: @escaping (String) -> Void) async throws {
         let id = UUID()
