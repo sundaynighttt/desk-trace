@@ -12,7 +12,7 @@ struct DeskTraceApp: App {
     var body: some Scene {
         Window("자리기록", id: "library") {
             library
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.shutDown() }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1000, height: GalleryLayout.standardOpeningHeight(windowWidth: 1000))
@@ -42,6 +42,6 @@ struct StatusMenu: View {
         Button("기록 보기") { openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
         if model.active { Button("감지 끄기") { model.stop() } }
         Divider()
-        Button("자리기록 종료") { model.stop(); NSApp.terminate(nil) }
+        Button("자리기록 종료") { model.shutDown(); NSApp.terminate(nil) }
     }
 }

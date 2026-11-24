@@ -1,5 +1,4 @@
 import AppKit
-import AVFoundation
 import ScreenCaptureKit
 import SwiftUI
 
@@ -20,6 +19,9 @@ final class DeskModel: ObservableObject {
     private var generation = UUID()
     let cameraFeed: CameraFeed
     private var input: FirstInput?
+    private var firstInputSaved = false
+    private var lastMotion: Date?
+    private static let sessionKey = "detectionSession"
 
     init(store: RecordStore = .standard, prefs: UserDefaults = .standard, cameraFeed: CameraFeed? = nil) {
         self.cameraFeed = cameraFeed ?? CameraFeed()
@@ -30,6 +32,11 @@ final class DeskModel: ObservableObject {
         inputOn = prefs.bool(forKey: "input")
         minutes = min(60, max(10, prefs.integer(forKey: "interval")))
         reload()
+        if let session = prefs.dictionary(forKey: Self.sessionKey), cameraOn || inputOn {
+            firstInputSaved = session["firstInputSaved"] as? Bool ?? false
+            lastMotion = session["lastMotion"] as? Date
+            begin()
+        }
     }
 
     var active: Bool { phase != .off }
@@ -48,6 +55,11 @@ final class DeskModel: ObservableObject {
     func toggle() {
         if active { stop(); return }
         guard cameraOn || inputOn else { return }
+        rememberSession()
+        begin()
+    }
+
+    private func begin() {
         notice = nil
         permissionPane = nil
         generation = UUID()
@@ -62,13 +74,7 @@ final class DeskModel: ObservableObject {
         do {
             try store.prepare()
             var filter: SCContentFilter?
-            if cameraOn {
-                pane = "Privacy_Camera"
-                let permitted = await AVCaptureDevice.requestAccess(for: .video)
-                guard generation == token else { return }
-                guard permitted else { throw AppProblem("움직임 감지를 사용하려면 카메라 접근을 허용해 주세요.") }
-            }
-            if inputOn {
+            if inputOn && !firstInputSaved {
                 pane = "Privacy_ListenEvent"
                 try FirstInput.checkPermission()
                 pane = "Privacy_ScreenCapture"
@@ -77,7 +83,7 @@ final class DeskModel: ObservableObject {
             }
             pane = nil
             if cameraOn {
-                try await cameraFeed.beginDetection(minutes: minutes, onImage: { [weak self] image, date in
+                try await cameraFeed.beginDetection(minutes: minutes, lastMotion: lastMotion, onImage: { [weak self] image, date in
                     Task { @MainActor in await self?.save(image, kind: .camera, date: date, token: token) }
                 }, onFailure: { [weak self] reason in
                     self?.cameraFailed(reason, token: token)
@@ -93,13 +99,15 @@ final class DeskModel: ObservableObject {
                 pane = "Privacy_ListenEvent"
                 try reader.start()
                 inputStatus = "첫 입력 대기"
+            } else if inputOn && firstInputSaved {
+                inputStatus = "첫 입력 저장됨"
             }
             phase = .armed
         } catch {
             guard generation == token else { return }
             stop()
             notice = error.localizedDescription
-            permissionPane = pane
+            permissionPane = error is CameraFeed.AccessDenied ? "Privacy_Camera" : pane
         }
     }
 
@@ -133,8 +141,14 @@ final class DeskModel: ObservableObject {
             let record = try store.save(data, kind: kind, at: date)
             let i = records.firstIndex { $0.date < record.date } ?? records.endIndex
             records.insert(record, at: i)
-            if kind == .screen { inputStatus = "첫 입력 저장됨" }
-            else { cameraStatus = "마지막 촬영 " + date.formatted(date: .omitted, time: .shortened) }
+            if kind == .screen {
+                firstInputSaved = true
+                inputStatus = "첫 입력 저장됨"
+            } else {
+                lastMotion = max(lastMotion ?? date, date)
+                cameraStatus = "마지막 촬영 " + date.formatted(date: .omitted, time: .shortened)
+            }
+            rememberSession()
         } catch {
             guard generation == token else { return }
             if kind == .camera { cameraFailed(error.localizedDescription, token: token) }
@@ -142,7 +156,20 @@ final class DeskModel: ObservableObject {
         }
     }
 
+    private func rememberSession() {
+        var session: [String: Any] = ["firstInputSaved": firstInputSaved]
+        if let lastMotion { session["lastMotion"] = lastMotion }
+        prefs.set(session, forKey: Self.sessionKey)
+    }
+
     func stop() {
+        prefs.removeObject(forKey: Self.sessionKey)
+        firstInputSaved = false
+        lastMotion = nil
+        shutDown()
+    }
+
+    func shutDown() {
         generation = UUID()
         phase = .off
         input?.stop()

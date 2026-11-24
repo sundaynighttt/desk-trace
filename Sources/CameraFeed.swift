@@ -4,6 +4,10 @@ import Combine
 /// Two independent consumers share one camera. Only an armed detector installs a photo callback.
 @MainActor
 final class CameraFeed: ObservableObject {
+    struct AccessDenied: LocalizedError {
+        var errorDescription: String? { "시스템 설정에서 카메라 접근을 허용해 주세요." }
+    }
+
     @Published private(set) var preview: AVCaptureSession?
     @Published private(set) var displayRatio: CGFloat?
     @Published private(set) var previewIssue: String?
@@ -16,7 +20,13 @@ final class CameraFeed: ObservableObject {
     private let startCamera: (MotionCamera) async throws -> Void
     private let requestAccess: () async -> Bool
 
-    init(requestAccess: @escaping () async -> Bool = { await AVCaptureDevice.requestAccess(for: .video) },
+    init(requestAccess: @escaping () async -> Bool = {
+             switch AVCaptureDevice.authorizationStatus(for: .video) {
+             case .authorized: return true
+             case .notDetermined: return await AVCaptureDevice.requestAccess(for: .video)
+             default: return false
+             }
+         },
          startCamera: @escaping (MotionCamera) async throws -> Void = { try await $0.start() }) {
         self.startCamera = startCamera
         self.requestAccess = requestAccess
@@ -44,14 +54,14 @@ final class CameraFeed: ObservableObject {
         }
     }
 
-    func beginDetection(minutes: Int, onImage: @escaping @Sendable (CGImage, Date) -> Void,
+    func beginDetection(minutes: Int, lastMotion: Date? = nil, onImage: @escaping @Sendable (CGImage, Date) -> Void,
                         onFailure: @escaping (String) -> Void) async throws {
         let id = UUID()
         detectionID = id
         detectionFailed = onFailure
         let source = try await ready()
         guard detectionID == id else { throw CancellationError() }
-        source.detect(minutes: minutes, onImage: onImage)
+        source.detect(minutes: minutes, lastMotion: lastMotion, onImage: onImage)
     }
 
     func endDetection() {
@@ -80,7 +90,7 @@ final class CameraFeed: ObservableObject {
             }
             camera = source
             startup = Task {
-                guard await requestAccess() else { throw AppProblem("시스템 설정에서 카메라 접근을 허용해 주세요.") }
+                guard await requestAccess() else { throw AccessDenied() }
                 try Task.checkCancellation()
                 try await startCamera(source)
             }

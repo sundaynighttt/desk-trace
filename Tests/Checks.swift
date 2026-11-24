@@ -127,6 +127,7 @@ struct Checks {
         model.stop()
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         try expect(!model.active && model.notice == nil && model.records.count == 2, "stop cancels queued startup without a new record")
+        try checkDetectionRestoration(store: store)
         // Use fixed local dates so a test crossing midnight still exercises two distinct local dates.
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 9*3600)!
@@ -218,6 +219,82 @@ struct Checks {
             try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: GalleryLayout.minimumHeight)
         }
         print("Completed \(checks) checks.")
+    }
+
+    @MainActor
+    static func checkDetectionRestoration(store: RecordStore) throws {
+        let suite = "DeskTraceResume-" + UUID().uuidString
+        let prefs = UserDefaults(suiteName: suite)!
+        defer { prefs.removePersistentDomain(forName: suite) }
+        prefs.set(false, forKey: "input")
+        var allowed = true
+        var starts = 0
+        func launch() -> DeskModel {
+            let feed = CameraFeed(requestAccess: { allowed }, startCamera: { _ in starts += 1 })
+            return DeskModel(store: store, prefs: UserDefaults(suiteName: suite)!, cameraFeed: feed)
+        }
+        func settle(_ model: DeskModel) {
+            let deadline = Date().addingTimeInterval(3)
+            while model.phase == .starting && Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            }
+        }
+
+        let first = launch()
+        try expect(!first.active && starts == 0, "legacy preferences and existing captures do not imply detection was on")
+        first.toggle()
+        settle(first)
+        try expect(first.phase == .armed && starts == 1, "manual activation arms the camera")
+        let count = first.records.count
+        first.shutDown()
+        let updated = launch()
+        settle(updated)
+        try expect(!first.active && updated.phase == .armed && starts == 2 && updated.records.count == count,
+                   "relaunch restores enabled detection without creating a capture")
+        updated.stop()
+        let disabled = launch()
+        try expect(!disabled.active && starts == 2, "explicitly disabled detection stays off after an update")
+        disabled.toggle()
+        disabled.shutDown()
+        let interrupted = launch()
+        settle(interrupted)
+        try expect(interrupted.phase == .armed && starts == 3, "quitting during startup preserves the user's enable choice")
+        interrupted.stop()
+        disabled.toggle()
+        disabled.stop()
+        try expect(!launch().active, "cancelling startup does not arm the next launch")
+
+        // Restore a saved input-only session; it must not attach another input listener.
+        prefs.set(false, forKey: "camera")
+        prefs.set(true, forKey: "input")
+        prefs.set(["firstInputSaved": true], forKey: "detectionSession")
+        let finished = launch()
+        settle(finished)
+        try expect(finished.phase == .armed && finished.inputStatus == "첫 입력 저장됨" && starts == 3,
+                   "a recorded first input stays consumed when the session resumes")
+        finished.stop()
+
+        prefs.set(true, forKey: "camera")
+        prefs.set(false, forKey: "input")
+        let enabled = launch()
+        enabled.toggle()
+        settle(enabled)
+        enabled.shutDown()
+        allowed = false
+        let revoked = launch()
+        settle(revoked)
+        try expect(revoked.phase == .off && revoked.notice != nil && revoked.permissionPane == "Privacy_Camera",
+                   "a revoked permission shows the camera settings and leaves detection off")
+        try expect(!launch().active, "a failed restore does not repeat on subsequent launches")
+
+        let now = ProcessInfo.processInfo.systemUptime
+        var gate = MotionGate(minutes: 10, lastMotion: Date().addingTimeInterval(-180))
+        let still = [UInt8](repeating: 45, count: 100)
+        var motion = still
+        for i in 0..<20 { motion[i] = 190 }
+        _ = gate.shouldCapture(still, at: now)
+        try expect(!gate.shouldCapture(motion, at: now + 418) && gate.shouldCapture(still, at: now + 422),
+                   "resumed motion detection honors the remaining capture interval")
     }
 
     @MainActor
