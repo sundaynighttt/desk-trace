@@ -16,26 +16,6 @@ struct LibraryView: View {
             ZStack {
                 HStack {
                     Menu {
-                        Picker("조회 기간", selection: $period) {
-                            ForEach(ArchivePeriod.allCases, id: \.self) { choice in
-                                Text(choice.rawValue).tag(choice)
-                            }
-                        }.pickerStyle(.inline).labelsHidden()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(period.rawValue)
-                            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-                        }
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 12).frame(height: 29)
-                        .background(GlassInk.blue, in: RoundedRectangle(cornerRadius: 10))
-                        .contentShape(Rectangle())
-                    }
-                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                    .accessibilityLabel("조회 기간").accessibilityValue(period.rawValue)
-                    .accessibilityIdentifier("archive.period")
-                    Spacer()
-                    Menu {
                         Picker("화면 모드", selection: $mode) {
                             ForEach(GalleryMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }.pickerStyle(.inline).labelsHidden()
@@ -51,6 +31,8 @@ struct LibraryView: View {
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                     .accessibilityLabel("화면 모드").accessibilityValue(mode.rawValue)
                     .accessibilityIdentifier("archive.mode")
+                    if mode == .mini { ArchivePeriodMenu(period: $period) }
+                    Spacer()
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
                         if desired != model.active { model.toggle() }
                     }))
@@ -91,7 +73,7 @@ struct LibraryView: View {
                 .padding(.horizontal, GalleryLayout.inset).padding(.vertical, 5)
             }
             if mode == .standard {
-                StandardGallery(index: index, feed: model.cameraFeed,
+                StandardGallery(index: index, feed: model.cameraFeed, period: $period,
                                 isFiltered: !model.records.isEmpty && (kind != nil || period != .all),
                                 resetFilters: { period = .all; kind = nil })
             } else {
@@ -133,6 +115,32 @@ struct LibraryView: View {
                     bottomTrailingRadius: trailing, topTrailingRadius: trailing))
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+struct ArchivePeriodMenu: View {
+    @Binding var period: ArchivePeriod
+
+    var body: some View {
+        Menu {
+            Picker("조회 기간", selection: $period) {
+                ForEach(ArchivePeriod.allCases, id: \.self) { choice in
+                    Text(choice.rawValue).tag(choice)
+                }
+            }.pickerStyle(.inline).labelsHidden()
+        } label: {
+            HStack(spacing: 4) {
+                Text(period.rawValue)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 8).frame(height: 29)
+            .background(GlassInk.blue, in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .accessibilityLabel("조회 기간").accessibilityValue(period.rawValue)
+        .accessibilityIdentifier("archive.period")
     }
 }
 
