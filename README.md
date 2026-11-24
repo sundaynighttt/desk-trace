@@ -8,14 +8,14 @@
 
 **macOS 14 이상 · Apple Silicon 및 Intel 지원**
 
-[자리기록 0.4.0 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.4.0/DeskTrace-0.4.0.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
+[자리기록 0.4.1 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.4.1/DeskTrace-0.4.1.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
 
 ![시험용 사진으로 본 일반 모드. 왼쪽에 선택한 사진이 크게 보이고 오른쪽에 날짜별 사진 목록과 시작일·종료일을 표시한 세로 시간 눈금이 있습니다.](docs/gallery.png)
 
 ## 설치하고 감지 켜기
 
 1. 위의 설치 파일(DMG)을 열고 **자리기록**을 **Applications(응용 프로그램)** 폴더로 끌어놓습니다.
-2. 앱을 열고 오른쪽 위 **설정(톱니바퀴)**에서 카메라 움직임과 입력 기록 중 사용할 항목을 고릅니다. 움직임 사진의 촬영 간격은 10~60분 사이에서 1분 단위로 조정할 수 있습니다. 처음에는 10분입니다.
+2. 앱을 열고 오른쪽 위 **설정(톱니바퀴)**에서 카메라 움직임과 입력 기록 중 사용할 항목을 고릅니다. 움직임 사진의 촬영 간격은 1~60분 사이에서 1분 단위로 조정할 수 있습니다. 처음에는 10분입니다.
 3. 자리를 비울 때 **감지**를 켜고 선택한 기능의 macOS 권한을 허용합니다. macOS가 재실행을 요청하면 앱을 다시 엽니다. 권한 문제로 감지가 꺼졌다면 스위치를 다시 켭니다.
 4. 돌아오면 감지를 끄고 기록을 확인합니다. 감지 중에도 사진을 볼 수 있고, 창을 닫아도 메뉴 막대 아이콘으로 다시 열 수 있습니다.
 
@@ -89,7 +89,8 @@
 | 0.3.11 | 일반 모드의 온에어 화면으로 시작합니다. 저장 사진을 본 뒤 사진 오른쪽 아래의 **라이브로 돌아가기**로 온에어에 복귀할 수 있습니다. |
 | 0.3.12 | 업데이트·재실행 뒤 감지 스위치와 진행 중인 촬영 대기를 복원합니다. |
 | 0.3.13 | 일반 모드 썸네일에 촬영 시각을 항상 표시하고, 큰 화면 오른쪽 위에서 온에어 시계와 저장 사진의 촬영 시각을 구분합니다. |
-| **0.4.0** | 입력 첫 순간의 카메라 사진과 화면을 남기고, 마지막 입력 10초 뒤 화면 GIF를 저장합니다. |
+| 0.4.0 | 입력 첫 순간의 카메라 사진과 화면을 남기고, 마지막 입력 10초 뒤 화면 GIF를 저장합니다. |
+| **0.4.1** | 카메라 움직임 촬영 간격을 최소 1분으로 설정할 수 있습니다. |
 
 0.2.2부터 공개한 버전별 설치 파일과 변경 내용은 [공개 릴리스 목록](https://github.com/sundaynighttt/desk-trace/releases)에서 확인할 수 있습니다.
 
@@ -103,6 +104,6 @@
 ./scripts/package.sh
 ```
 
-빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.4.0.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
+빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.4.1.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
 
 WebP 라이브러리의 저작권 및 특허 안내는 `Notices/`와 앱 번들의 Resources에 포함됩니다.

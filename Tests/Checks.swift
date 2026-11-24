@@ -92,6 +92,11 @@ struct Checks {
         try expect(!gate.shouldCapture(lamp, at: 602), "timer expiry alone does not capture")
         try expect(gate.shouldCapture(moved, at: 602.1), "ignored motion does not extend cooldown")
         try expect(MotionGate(minutes: 60).interval == 3600 && MotionGate(minutes: 31).interval == 1860, "60 minutes and single-minute granularity")
+        var oneMinute = MotionGate(minutes: 1)
+        _ = oneMinute.shouldCapture(still, at: 0)
+        try expect(oneMinute.shouldCapture(moved, at: 1), "one-minute interval records the first motion immediately")
+        try expect(!oneMinute.shouldCapture(still, at: 60.9) && oneMinute.shouldCapture(moved, at: 61),
+                   "one-minute interval allows new motion after exactly 60 seconds")
         let input = PhysicalPressGate(armedAt: 100)
         try expect(!input.accept(time: 99, pressed: true), "arming click ignored")
         try expect(!input.accept(time: 101, pressed: false), "release ignored")
@@ -123,6 +128,9 @@ struct Checks {
         try expect(model.records == [newer, older], "gallery restores valid records in newest-first order")
         let gallery = ArchiveIndex(newestFirst: model.records, period: .all, kind: nil)
         try expect(gallery.chronological == [older,newer], "old newest-first preference preserves records on the shared chronological axis")
+        try expect(model.minutes == 10, "fresh motion interval defaults to ten minutes")
+        model.minutes = 1
+        try expect(DeskModel(store: store, prefs: prefs).minutes == 1, "one-minute setting survives relaunch")
         model.minutes = 37
         model.inputOn = false
         let restored = DeskModel(store: store, prefs: prefs)

@@ -46,10 +46,10 @@ final class DeskModel: ObservableObject {
         self.cameraFeed = cameraFeed ?? CameraFeed()
         self.store = store
         self.prefs = prefs
-        prefs.register(defaults: ["camera": true, "input": true, "interval": 10])
+        prefs.register(defaults: ["camera": true, "input": true, "interval": MotionGate.defaultMinutes])
         cameraOn = prefs.bool(forKey: "camera")
         inputOn = prefs.bool(forKey: "input")
-        minutes = min(60, max(10, prefs.integer(forKey: "interval")))
+        minutes = MotionGate.clampedMinutes(prefs.integer(forKey: "interval"))
         reload()
         if let session = prefs.dictionary(forKey: Self.sessionKey), cameraOn || inputOn {
             lastMotion = session["lastMotion"] as? Date
