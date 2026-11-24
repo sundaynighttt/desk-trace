@@ -36,7 +36,7 @@ struct ArchiveIndex {
          now: Date = Date(), calendar: Calendar = .current) {
         let range = period.dateRange(relativeTo: now, in: calendar)
         let filtered = newestFirst.filter { record in
-            (range?.contains(record.date) ?? true) && (kind == nil || record.kind == kind)
+            (range?.contains(record.date) ?? true) && (kind == nil || record.kind == kind || (kind == .screen && record.kind != .camera))
         }
         let ascending = Array(filtered.reversed())
         chronological = ascending

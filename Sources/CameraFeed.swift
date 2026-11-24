@@ -1,7 +1,7 @@
 import AVFoundation
 import Combine
 
-/// Two independent consumers share one camera. Only an armed detector installs a photo callback.
+/// Preview and armed capture share one camera session.
 @MainActor
 final class CameraFeed: ObservableObject {
     struct AccessDenied: LocalizedError {
@@ -59,14 +59,19 @@ final class CameraFeed: ObservableObject {
         return camera?.recentFrameDate(at: now)
     }
 
-    func beginDetection(minutes: Int, lastMotion: Date? = nil, onImage: @escaping @Sendable (CGImage, Date) -> Void,
+    func beginDetection(minutes: Int?, lastMotion: Date? = nil, onImage: @escaping @Sendable (CGImage, Date) -> Void,
                         onFailure: @escaping (String) -> Void) async throws {
         let id = UUID()
         detectionID = id
         detectionFailed = onFailure
         let source = try await ready()
         guard detectionID == id else { throw CancellationError() }
-        source.detect(minutes: minutes, lastMotion: lastMotion, onImage: onImage)
+        if let minutes { source.detect(minutes: minutes, lastMotion: lastMotion, onImage: onImage) }
+    }
+
+    func takeInputPhoto(at date: Date) async throws -> CGImage {
+        guard detectionID != nil, let camera else { throw AppProblem("입력 순간의 카메라 사진을 찍을 수 없습니다.") }
+        return try await camera.takePhoto(at: date)
     }
 
     func endDetection() {

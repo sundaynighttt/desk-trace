@@ -92,14 +92,14 @@ struct Checks {
         try expect(!gate.shouldCapture(lamp, at: 602), "timer expiry alone does not capture")
         try expect(gate.shouldCapture(moved, at: 602.1), "ignored motion does not extend cooldown")
         try expect(MotionGate(minutes: 60).interval == 3600 && MotionGate(minutes: 31).interval == 1860, "60 minutes and single-minute granularity")
-        var input = PhysicalPressGate(armedAt: 100)
+        let input = PhysicalPressGate(armedAt: 100)
         try expect(!input.accept(time: 99, pressed: true), "arming click ignored")
         try expect(!input.accept(time: 101, pressed: false), "release ignored")
         try expect(!PhysicalPressGate.isPhysical(transport: "Virtual", virtual: nil) && !PhysicalPressGate.isPhysical(transport: "USB", virtual: true), "virtual input ignored")
         try expect(PhysicalPressGate.isPhysical(transport: "SPI", virtual: nil) && PhysicalPressGate.isPhysical(transport: "Bluetooth", virtual: false), "physical device transports accepted")
         try expect(input.accept(time: 103, pressed: true), "first physical press independent of camera cooldown")
-        try expect(!input.accept(time: 104, pressed: true), "repeated key does not save again")
-        var nextSession = PhysicalPressGate(armedAt: 105)
+        try expect(input.accept(time: 104, pressed: true), "later physical presses reach the idle timer")
+        let nextSession = PhysicalPressGate(armedAt: 105)
         try expect(nextSession.accept(time: 106, pressed: true), "new session accepts another first input")
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("DeskTraceTests-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -138,6 +138,7 @@ struct Checks {
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         try expect(!model.active && model.notice == nil && model.records.count == 2, "stop cancels queued startup without a new record")
         try checkDetectionRestoration(store: store)
+        try checkInputRecording(folder: root.appendingPathComponent("input-recording"))
         // Use fixed local dates so a test crossing midnight still exercises two distinct local dates.
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 9*3600)!
@@ -232,6 +233,83 @@ struct Checks {
     }
 
     @MainActor
+    static func checkInputRecording(folder: URL) throws {
+        let origin = ContinuousClock().now
+        var window = InputRecordingWindow(at: origin)
+        try expect(window.shouldCapture(at: origin), "first input captures the screen immediately")
+        try expect(!window.shouldCapture(at: origin + .milliseconds(999)) &&
+                   window.shouldCapture(at: origin + .seconds(1)), "screen captures occur once a second")
+        try expect(window.extend(at: origin + .seconds(9)), "input shortly before expiry extends the recording")
+        try expect(window.isOpen(at: origin + .milliseconds(18_999)) &&
+                   !window.extend(at: origin + .seconds(19)), "recording closes ten seconds after the last input")
+        try expect(!window.shouldCapture(at: origin + .seconds(19)), "no frame is captured at the idle deadline")
+
+        let store = RecordStore(folder: folder)
+        let suite = "DeskTraceInput-" + UUID().uuidString
+        let prefs = UserDefaults(suiteName: suite)!
+        defer { prefs.removePersistentDomain(forName: suite) }
+        prefs.set(false, forKey: "camera")
+        prefs.set(true, forKey: "input")
+        var source: MotionCamera?
+        var input: ((Date) -> Void)?
+        var shots = 0
+        let feed = CameraFeed(requestAccess: { true }, startCamera: { source = $0 })
+        let model = DeskModel(store: store, prefs: prefs, cameraFeed: feed, prepareInput: {
+            InputCaptureSource(takeScreen: {
+                shots += 1
+                return fixture(128, 72)
+            }, listen: {
+                input = $0
+                return { input = nil }
+            })
+        }, inputIdle: .milliseconds(1400))
+        func settle(_ interval: TimeInterval) { RunLoop.current.run(until: Date().addingTimeInterval(interval)) }
+        model.toggle()
+        let startDeadline = Date().addingTimeInterval(3)
+        while model.phase == .starting && Date() < startDeadline { settle(0.01) }
+        guard let source, let press = input else { throw AppProblem("입력 기록 시험 준비 실패") }
+        var pixel: CVPixelBuffer?
+        guard CVPixelBufferCreate(nil, 128, 72, kCVPixelFormatType_32BGRA, nil, &pixel) == kCVReturnSuccess, let pixel else {
+            throw AppProblem("입력 사진 시험 프레임 생성 실패")
+        }
+        press(.now)
+        settle(0.12)
+        source.processFrame(pixel)
+        try expect(shots == 1, "first press requests just one immediate screenshot")
+        settle(0.50)
+        press(.now)
+        settle(0.85)
+        try expect(try store.readAll().allSatisfy { $0.kind != .screenGIF }, "later input extends beyond the original expiry")
+        let gifDeadline = Date().addingTimeInterval(2)
+        while model.records.allSatisfy({ $0.kind != .screenGIF }) && Date() < gifDeadline { settle(0.01) }
+        let saved = try store.readAll()
+        try expect(saved.count == 3 && Set(saved.map(\.kind)) == [.inputCamera, .screen, .screenGIF],
+                   "one input sequence saves exactly one camera photo, initial still and GIF")
+        guard let gif = saved.first(where: { $0.kind == .screenGIF }),
+              let image = CGImageSourceCreateWithURL(gif.url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
+              let gifProps = props[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
+            throw AppProblem("입력 기록 GIF를 읽을 수 없습니다.")
+        }
+        try expect(CGImageSourceGetCount(image) == shots && shots >= 2 && gifProps[kCGImagePropertyGIFDelayTime] as? Double == 1,
+                   "saved GIF includes the first shot and plays one frame per second")
+        try expect(saved == model.records, "simultaneous camera, still and GIF records keep their order when reloaded")
+        let archive = ArchiveIndex(newestFirst: saved, period: .all, kind: .screen)
+        try expect(archive.chronological.map(\.kind) == [.inputCamera, .screen, .screenGIF] && Picture.thumbnail(at: gif.url, pixels: 64) != nil &&
+                   Picture.aspectRatio(at: gif.url) == 128.0 / 72.0,
+                   "input filter shows all three formats and generates a GIF poster")
+        press(.now)
+        settle(0.10)
+        try expect(shots > CGImageSourceGetCount(image), "input after idle starts a new sequence immediately")
+        model.stop()
+        settle(0.15)
+        try expect(input == nil && (try store.readAll().filter { $0.kind == .screenGIF }.count) == 1,
+                   "manual stop cancels the pending GIF and detaches the listener")
+        let files = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        try expect(!files.contains { $0.hasPrefix(".input-") }, "stopping removes the temporary screen frames")
+    }
+
+    @MainActor
     static func checkDetectionRestoration(store: RecordStore) throws {
         let suite = "DeskTraceResume-" + UUID().uuidString
         let prefs = UserDefaults(suiteName: suite)!
@@ -239,9 +317,12 @@ struct Checks {
         prefs.set(false, forKey: "input")
         var allowed = true
         var starts = 0
+        var inputStarted = 0
         func launch() -> DeskModel {
             let feed = CameraFeed(requestAccess: { allowed }, startCamera: { _ in starts += 1 })
-            return DeskModel(store: store, prefs: UserDefaults(suiteName: suite)!, cameraFeed: feed)
+            return DeskModel(store: store, prefs: UserDefaults(suiteName: suite)!, cameraFeed: feed, prepareInput: {
+                InputCaptureSource(takeScreen: { fixture(32, 32) }, listen: { _ in inputStarted += 1; return {} })
+            })
         }
         func settle(_ model: DeskModel) {
             let deadline = Date().addingTimeInterval(3)
@@ -274,14 +355,14 @@ struct Checks {
         disabled.stop()
         try expect(!launch().active, "cancelling startup does not arm the next launch")
 
-        // Restore a saved input-only session; it must not attach another input listener.
+        // Older releases consumed one input per run; restored settings now start an input listener.
         prefs.set(false, forKey: "camera")
         prefs.set(true, forKey: "input")
         prefs.set(["firstInputSaved": true], forKey: "detectionSession")
         let finished = launch()
         settle(finished)
-        try expect(finished.phase == .armed && finished.inputStatus == "첫 입력 저장됨" && starts == 3,
-                   "a recorded first input stays consumed when the session resumes")
+        try expect(finished.phase == .armed && finished.inputStatus == "입력 대기" && starts == 4 && inputStarted == 1,
+                   "upgrading an already used input-only session prepares the camera and new listener")
         finished.stop()
 
         prefs.set(true, forKey: "camera")

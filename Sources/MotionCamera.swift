@@ -10,6 +10,13 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private var observers = [NSObjectProtocol]()
     // The capture queue writes here; only the on-screen clock samples the value.
     private let frameDate = OSAllocatedUnfairLock<Date?>(initialState: nil)
+    private struct PhotoRequest {
+        let id: UUID
+        let date: Date
+        let continuation: CheckedContinuation<CGImage, Error>
+    }
+
+    private var photos = [PhotoRequest]()
     private var lastSample = -Double.infinity
     private var gate: MotionGate?
     private var onImage: (@Sendable (CGImage, Date) -> Void)?
@@ -30,10 +37,26 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
     }
 
+    func takePhoto(at date: Date) async throws -> CGImage {
+        try await withCheckedThrowingContinuation { continuation in
+            let id = UUID()
+            Self.queue.async {
+                self.photos.append(PhotoRequest(id: id, date: date, continuation: continuation))
+                Self.queue.asyncAfter(deadline: .now() + 2) {
+                    guard let index = self.photos.firstIndex(where: { $0.id == id }) else { return }
+                    self.photos.remove(at: index).continuation.resume(
+                        throwing: AppProblem("입력 순간에 카메라 영상을 받지 못했습니다."))
+                }
+            }
+        }
+    }
+
     func endDetection() {
         Self.queue.async {
             self.gate = nil
             self.onImage = nil
+            self.photos.forEach { $0.continuation.resume(throwing: CancellationError()) }
+            self.photos.removeAll()
         }
     }
 
@@ -106,6 +129,7 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             onDisplayRatio(size.width / size.height)
         }
         let now = ProcessInfo.processInfo.systemUptime
+        if !photos.isEmpty { fulfillPhotos(from: buffer, at: date) }
         guard let onImage, now - lastSample >= 0.18 else { return }
         lastSample = now
         guard gate?.shouldCapture(Self.luminance(buffer), at: now) == true else { return }
@@ -115,6 +139,18 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             return
         }
         onImage(image, date)
+    }
+
+    private func fulfillPhotos(from buffer: CVPixelBuffer, at date: Date) {
+        let ready = photos.filter { $0.date <= date }
+        guard !ready.isEmpty else { return }
+        photos.removeAll { $0.date <= date }
+        let source = CIImage(cvPixelBuffer: buffer)
+        if let image = context.createCGImage(source, from: source.extent) {
+            ready.forEach { $0.continuation.resume(returning: image) }
+        } else {
+            ready.forEach { $0.continuation.resume(throwing: AppProblem("카메라 사진을 만들지 못했습니다.")) }
+        }
     }
 
     static func luminance(_ buffer: CVPixelBuffer) -> [UInt8] {
