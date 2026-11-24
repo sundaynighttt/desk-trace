@@ -19,7 +19,7 @@ struct StandardGallery: View {
                     VStack(alignment: .leading, spacing: 6) {
                         ArchivePeriodMenu(period: $period, mode: .standard)
                             .frame(width: width)
-                        HStack(spacing: GalleryLayout.gap) {
+                        HStack(spacing: GalleryLayout.standardRulerGap) {
                             archive.frame(width: width)
                             TimeRuler(index: index, pinned: selected ?? index.chronological.last,
                                       hover: { _ in }, choose: { item in

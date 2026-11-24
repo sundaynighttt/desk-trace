@@ -258,12 +258,12 @@ struct Checks {
             if let name { try rep.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(name)) }
             return rep
         }
+        var rulerLeft: CGFloat { host.bounds.width - GalleryLayout.inset - GalleryLayout.standardRulerWidth }
         func markerRow(_ rep: NSBitmapImageRep) -> Int? {
             let scale = CGFloat(rep.pixelsWide) / host.bounds.width
-            let edge = host.bounds.width - GalleryLayout.inset - 4
             return (0..<rep.pixelsHigh).first { row in
                 (2...14).allSatisfy { offset in
-                    let x = Int((edge - CGFloat(offset)) * scale)
+                    let x = Int((rulerLeft + CGFloat(offset)) * scale)
                     guard let color = rep.colorAt(x: x, y: row)?.usingColorSpace(.sRGB) else { return false }
                     return min(color.redComponent, color.greenComponent, color.blueComponent) > 0.85
                 }
@@ -282,10 +282,9 @@ struct Checks {
         let liveImage = try snapshot("standard-live.png")
         guard let liveMark = markerRow(liveImage) else { throw AppProblem("세로 시간 눈금 표시 없음") }
         let scale = CGFloat(liveImage.pixelsWide) / host.bounds.width
-        let edge = host.bounds.width - GalleryLayout.inset - 4
         let middleRow = liveMark + Int(scale)
         let length = (0..<Int(30 * scale)).filter { offset in
-            guard let c = liveImage.colorAt(x: Int(edge * scale) - offset, y: middleRow)?.usingColorSpace(.sRGB) else { return false }
+            guard let c = liveImage.colorAt(x: Int(rulerLeft * scale) + offset, y: middleRow)?.usingColorSpace(.sRGB) else { return false }
             return min(c.redComponent, c.greenComponent, c.blueComponent) > 0.85
         }.count
         try expect(abs(CGFloat(length) / scale - 16) <= 1, "vertical playhead uses a short neutral 16-point tick")
@@ -311,6 +310,8 @@ struct Checks {
         for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
             window.setContentSize(CGSize(width: CGFloat(width), height: size.height))
             settle()
+            let archiveRight = scroll.convert(scroll.bounds, to: nil).maxX
+            try expect(abs(rulerLeft - archiveRight - 6) < 0.1, "standard ruler begins six points after the archive at width \(width)")
             try expect(abs(scroll.frame.width - CGFloat(expected)) < 0.01,
                        "right archive uses even one-third width at " + String(width) + " points")
         }

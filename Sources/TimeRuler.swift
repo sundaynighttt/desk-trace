@@ -24,7 +24,7 @@ struct TimeRuler: View {
     }
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(alignment: .leading, spacing: 3) {
             if vertical, let first = index.chronological.first { dateLabel(first) }
             GeometryReader { proxy in
                 let position = active.map { index.fraction(of: $0.date) }
@@ -34,11 +34,11 @@ struct TimeRuler: View {
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: pointer != nil)
                 .overlay {
                     if vertical, let position {
-                        let length = min(16, max(0, proxy.size.width - 4))
+                        let length = min(16, proxy.size.width)
                         let thickness = min(2.5, proxy.size.height)
                         Capsule().fill(.white.opacity(0.94))
                             .frame(width: length, height: thickness)
-                            .position(x: proxy.size.width - 4 - length / 2,
+                            .position(x: length / 2,
                                       y: min(max(thickness / 2, proxy.size.height * position), proxy.size.height - thickness / 2))
                             .id(position).transition(.opacity)
                     }
@@ -133,8 +133,8 @@ private struct WaveTicks: View, Animatable {
             let n = buckets.count
             let width = vertical ? size.height : size.width
             let height = vertical ? size.width : size.height
-            if vertical { ctx.concatenate(CGAffineTransform(a: 0, b: 1, c: 1, d: 0, tx: 0, ty: 0)) }
-            let baseline = height-4
+            let baseline = height - 4
+            let maxLength = vertical ? height : max(0, baseline - 5)
             for i in 0..<n {
                 let t = Double(i)/Double(n-1)
                 let x = width*t
@@ -146,14 +146,19 @@ private struct WaveTicks: View, Animatable {
                 let amplitude: CGFloat = vertical ? 4 : 21
                 let extra = reduceMotion ? 0 : amplitude * proximity * (0.87 + 0.13 * cos(distance / 8))
                 let eventHeight = events == 0 ? 0 : min(10, 5+log2(Double(events+1)))
-                let h = min(max(0, baseline-5), base+extra+eventHeight)
+                let length = min(maxLength, base + extra + eventHeight)
                 let color: Color
                 if proximity > 0.36 { color = .white.opacity(0.95) }
                 else if events > 0 { color = .white.opacity(0.83) }
                 else { color = .white.opacity(major ? 0.54 : 0.32) }
                 let tickWidth: CGFloat = events > 0 ? 2.6 : 1.7
-                let tick = CGRect(x: min(max(0, x-tickWidth/2), max(0, width-tickWidth)),
-                                  y: max(0, baseline-h), width: tickWidth, height: min(baseline,h))
+                let start = min(max(0, x - tickWidth / 2), max(0, width - tickWidth))
+                let tick: CGRect
+                if vertical {
+                    tick = CGRect(x: 0, y: start, width: length, height: tickWidth)
+                } else {
+                    tick = CGRect(x: start, y: baseline - length, width: tickWidth, height: length)
+                }
                 ctx.fill(Path(roundedRect: tick, cornerRadius: 1), with: .color(color))
             }
             if let currentPosition, width > 0 {
