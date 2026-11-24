@@ -37,6 +37,7 @@ enum GalleryLayout {
         return ((fullWidth / 3) / 2).rounded() * 2
     }
 
+    static let archiveTextInset: CGFloat = 2
     static let standardRulerWidth: CGFloat = 52
     static let defaultVideoAspect: CGFloat = 16.0 / 9.0
     static let standardBottomInset: CGFloat = 16

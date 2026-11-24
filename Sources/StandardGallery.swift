@@ -17,7 +17,8 @@ struct StandardGallery: View {
                 HStack(spacing: GalleryLayout.gap) {
                     viewer
                     VStack(alignment: .leading, spacing: 6) {
-                        ArchivePeriodMenu(period: $period)
+                        ArchivePeriodMenu(period: $period, mode: .standard)
+                            .frame(width: width)
                         HStack(spacing: GalleryLayout.gap) {
                             archive.frame(width: width)
                             TimeRuler(index: index, pinned: selected ?? index.chronological.last,
@@ -68,7 +69,7 @@ struct StandardGallery: View {
                                 Text(ArchiveText.groupDate.string(from: day.id))
                                     .font(.system(size: 11, weight: .semibold)).monospacedDigit()
                                     .lineLimit(1).minimumScaleFactor(0.85)
-                                    .padding(.horizontal, 2).padding(.vertical, 1)
+                                    .padding(.horizontal, GalleryLayout.archiveTextInset).padding(.vertical, 1)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .background(.black.opacity(0.74), in: RoundedRectangle(cornerRadius: 3))
                                     .padding(.top, day.id == index.days.first?.id ? 0 : 4)
