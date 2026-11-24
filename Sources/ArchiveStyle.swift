@@ -32,20 +32,23 @@ enum GalleryLayout {
     static let filterVerticalInset: CGFloat = 7
     static let filterHeight = filterButtonHeight + 2 * filterVerticalInset
     static let photoSize = CGSize(width: 132, height: 87)
-    static func standardThumbnailWidth(in contentWidth: CGFloat) -> CGFloat {
-        let fullWidth = max(165, (contentWidth - 74) * 0.36)
+    static func standardThumbnailWidth(windowWidth: CGFloat) -> CGFloat {
+        // The thumbnail scale is based on the original gallery's symmetric insets.
+        let referenceWidth = windowWidth - inset * 2
+        let fullWidth = max(165, (referenceWidth - 74) * 0.36)
         return ((fullWidth / 3) / 2).rounded() * 2
     }
 
     static let archiveTextInset: CGFloat = 2
-    static let standardRulerGap: CGFloat = 6
+    static let standardRulerGap: CGFloat = 12
+    static let standardTrailingInset: CGFloat = 10
     static let standardRulerWidth: CGFloat = 32
     static let defaultVideoAspect: CGFloat = 16.0 / 9.0
     static let standardBottomInset: CGFloat = 16
 
     static func standardOpeningHeight(windowWidth: CGFloat) -> CGFloat {
-        let contentWidth = windowWidth - inset * 2
-        let viewerWidth = contentWidth - standardThumbnailWidth(in: contentWidth) - standardRulerWidth - gap - standardRulerGap
+        let contentWidth = windowWidth - inset - standardTrailingInset
+        let viewerWidth = contentWidth - standardThumbnailWidth(windowWidth: windowWidth) - standardRulerWidth - gap - standardRulerGap
         return max(350, ceil(viewerWidth / defaultVideoAspect) + 8 + filterHeight + gap + standardBottomInset)
     }
 

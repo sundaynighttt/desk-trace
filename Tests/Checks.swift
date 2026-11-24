@@ -258,7 +258,8 @@ struct Checks {
             if let name { try rep.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(name)) }
             return rep
         }
-        var rulerLeft: CGFloat { host.bounds.width - GalleryLayout.inset - GalleryLayout.standardRulerWidth }
+        let expectedTrailingInset: CGFloat = 10
+        var rulerLeft: CGFloat { host.bounds.width - expectedTrailingInset - GalleryLayout.standardRulerWidth }
         func markerRow(_ rep: NSBitmapImageRep) -> Int? {
             let scale = CGFloat(rep.pixelsWide) / host.bounds.width
             return (0..<rep.pixelsHigh).first { row in
@@ -311,7 +312,7 @@ struct Checks {
             window.setContentSize(CGSize(width: CGFloat(width), height: size.height))
             settle()
             let archiveRight = scroll.convert(scroll.bounds, to: nil).maxX
-            try expect(abs(rulerLeft - archiveRight - 6) < 0.1, "standard ruler begins six points after the archive at width \(width)")
+            try expect(abs(rulerLeft - archiveRight - 12) < 0.1, "standard ruler has a twelve-point photo gap and ten-point trailing inset at width \(width)")
             try expect(abs(scroll.frame.width - CGFloat(expected)) < 0.01,
                        "right archive uses even one-third width at " + String(width) + " points")
         }
