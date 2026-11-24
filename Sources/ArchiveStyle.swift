@@ -38,13 +38,14 @@ enum GalleryLayout {
     }
 
     static let archiveTextInset: CGFloat = 2
-    static let standardRulerWidth: CGFloat = 52
+    static let standardRulerGap: CGFloat = 6
+    static let standardRulerWidth: CGFloat = 32
     static let defaultVideoAspect: CGFloat = 16.0 / 9.0
     static let standardBottomInset: CGFloat = 16
 
     static func standardOpeningHeight(windowWidth: CGFloat) -> CGFloat {
         let contentWidth = windowWidth - inset * 2
-        let viewerWidth = contentWidth - standardThumbnailWidth(in: contentWidth) - standardRulerWidth - gap * 2
+        let viewerWidth = contentWidth - standardThumbnailWidth(in: contentWidth) - standardRulerWidth - gap - standardRulerGap
         return max(350, ceil(viewerWidth / defaultVideoAspect) + 8 + filterHeight + gap + standardBottomInset)
     }
 
