@@ -10,7 +10,7 @@ struct LibraryView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        let index = ArchiveIndex(newestFirst: model.records, period: period, kind: kind, newest: model.newest, now: referenceDate)
+        let index = ArchiveIndex(newestFirst: model.records, period: period, kind: kind, now: referenceDate)
         VStack(spacing: 0) {
             ZStack {
                 HStack {
@@ -41,7 +41,7 @@ struct LibraryView: View {
                     chip("첫 입력", selected: kind == .screen) { kind = .screen }
                 }
             }
-            .padding(.horizontal, 25).padding(.top, 8).padding(.bottom, 8)
+            .padding(.horizontal, GalleryLayout.inset).padding(.top, 8).padding(.bottom, GalleryLayout.gap)
             if let notice = model.notice {
                 HStack(alignment: .center, spacing: 8) {
                     Image(systemName: "exclamationmark.circle")
@@ -52,7 +52,8 @@ struct LibraryView: View {
                     Spacer()
                     Button { model.notice = nil } label: { Image(systemName: "xmark") }
                         .buttonStyle(.plain).accessibilityLabel("안내 닫기")
-                }.font(.callout).padding(.horizontal, 24).padding(.vertical, 5)
+                }.font(.callout).fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, GalleryLayout.inset).padding(.vertical, 5)
             }
             ArchiveBrowser(index: index, isFiltered: kind != nil || period != .all, active: model.active) {
                 period = .all
@@ -60,7 +61,8 @@ struct LibraryView: View {
             }
             .id(FilterIdentity(period: period, kind: kind))
         }
-        .frame(minWidth: 680, maxWidth: .infinity, minHeight: 216, maxHeight: 380)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(minWidth: 680, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(.white)
         .background {
             ZStack {
@@ -118,10 +120,6 @@ struct MonitorSettings: View {
                 Text("감지를 끄면 설정을 바꿀 수 있습니다.").font(.caption)
             }
             Divider()
-            Picker("기록 정렬", selection: $model.newest) {
-                Text("최신순").tag(true)
-                Text("오래된순").tag(false)
-            }.pickerStyle(.segmented)
             Button(action: model.revealFolder) { Label("저장 폴더 열기", systemImage: "folder") }
                 .buttonStyle(.borderless)
         }.padding(20).frame(width: 282)

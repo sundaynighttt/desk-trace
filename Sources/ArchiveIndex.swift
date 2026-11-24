@@ -23,11 +23,10 @@ enum ArchivePeriod: String, CaseIterable {
 /// Input is the store's newest-first order. Rebuild only when the records or filters change.
 struct ArchiveIndex {
     let chronological: [CaptureRecord]
-    let displayed: [CaptureRecord]
     let marks: [Int]
     let spansDays: Bool
 
-    init(newestFirst: [CaptureRecord], period: ArchivePeriod, kind: CaptureKind?, newest: Bool,
+    init(newestFirst: [CaptureRecord], period: ArchivePeriod, kind: CaptureKind?,
          now: Date = Date(), calendar: Calendar = .current) {
         let range = period.dateRange(relativeTo: now, in: calendar)
         let filtered = newestFirst.filter { record in
@@ -35,7 +34,6 @@ struct ArchiveIndex {
         }
         let ascending = Array(filtered.reversed())
         chronological = ascending
-        displayed = newest ? filtered : ascending
         if let first = ascending.first, let last = ascending.last {
             spansDays = !calendar.isDate(first.date, inSameDayAs: last.date)
         } else {
