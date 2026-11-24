@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>DeskTrace</string>
+<key>CFBundleIdentifier</key><string>app.desktrace.mac</string>
+<key>CFBundleName</key><string>자리기록</string>
+<key>CFBundleDisplayName</key><string>자리기록</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleDevelopmentRegion</key><string>ko</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSCameraUsageDescription</key><string>움직임 감지를 켰을 때 카메라 사진을 이 Mac에 저장합니다.</string>
+<key>NSScreenCaptureUsageDescription</key><string>첫 입력이 감지되면 기본 화면 한 장을 이 Mac에 저장합니다.</string>
+<key>NSInputMonitoringUsageDescription</key><string>첫 키 입력이나 클릭 시점을 감지합니다. 입력한 내용은 저장하지 않습니다.</string>
+</dict></plist>
