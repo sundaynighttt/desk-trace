@@ -20,11 +20,17 @@ enum ArchivePeriod: String, CaseIterable {
     }
 }
 
+struct ArchiveDay: Identifiable {
+    let id: Date
+    var records: [CaptureRecord]
+}
+
 /// Input is the store's newest-first order. Rebuild only when the records or filters change.
 struct ArchiveIndex {
     let chronological: [CaptureRecord]
     let marks: [Int]
-    let spansDays: Bool
+    let days: [ArchiveDay]
+    var spansDays: Bool { days.count > 1 }
 
     init(newestFirst: [CaptureRecord], period: ArchivePeriod, kind: CaptureKind?,
          now: Date = Date(), calendar: Calendar = .current) {
@@ -34,11 +40,17 @@ struct ArchiveIndex {
         }
         let ascending = Array(filtered.reversed())
         chronological = ascending
-        if let first = ascending.first, let last = ascending.last {
-            spansDays = !calendar.isDate(first.date, inSameDayAs: last.date)
-        } else {
-            spansDays = false
+        var groups = [ArchiveDay]()
+        var nextMidnight = Date.distantPast
+        for record in ascending {
+            if groups.isEmpty || record.date >= nextMidnight {
+                let start = calendar.startOfDay(for: record.date)
+                groups.append(ArchiveDay(id: start, records: []))
+                nextMidnight = calendar.dateInterval(of: .day, for: record.date)?.end ?? .distantFuture
+            }
+            groups[groups.count - 1].records.append(record)
         }
+        days = groups
         var counts = [Int](repeating: 0, count: 144)
         if let first = ascending.first, let last = ascending.last {
             let span = last.date.timeIntervalSince(first.date)

@@ -83,6 +83,23 @@ enum Picture {
         return Data(bytes: output, count: count)
     }
 
+    // Capture URLs are unique and immutable. Read only the header for layout, before decoding a visible tile.
+    private static let aspectRatios = NSCache<NSURL, NSNumber>()
+
+    static func aspectRatio(at url: URL) -> CGFloat? {
+        if let cached = aspectRatios.object(forKey: url as NSURL) { return CGFloat(cached.doubleValue) }
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, options),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, options) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0 else { return nil }
+        let rotated = (5...8).contains(properties[kCGImagePropertyOrientation] as? Int ?? 1)
+        let ratio = rotated ? CGFloat(height) / CGFloat(width) : CGFloat(width) / CGFloat(height)
+        aspectRatios.setObject(NSNumber(value: Double(ratio)), forKey: url as NSURL)
+        return ratio
+    }
+
     static func thumbnail(at url: URL, pixels: Int) -> NSImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [

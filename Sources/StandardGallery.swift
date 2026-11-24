@@ -11,12 +11,11 @@ struct StandardGallery: View {
 
     var body: some View {
         GeometryReader { area in
-            let thumbnail = GalleryLayout.standardThumbnailSize(in: area.size.width)
+            let width = GalleryLayout.standardThumbnailWidth(in: area.size.width)
             ScrollViewReader { scroll in
                 HStack(spacing: GalleryLayout.gap) {
                     viewer
-                    archive(thumbnail: thumbnail)
-                        .frame(width: thumbnail.width)
+                    archive.frame(width: width)
                     TimeRuler(index: index, pinned: selected ?? index.chronological.last,
                               hover: { _ in }, choose: { item in
                         selected = item
@@ -24,7 +23,6 @@ struct StandardGallery: View {
                     }, vertical: true)
                     .frame(width: 52)
                 }
-                .onAppear { scrollToLatest(scroll) }
                 .onChange(of: index.chronological) { old, rows in
                     if let selected, !rows.contains(selected) {
                         self.selected = nil
@@ -44,7 +42,7 @@ struct StandardGallery: View {
         if let last = index.chronological.last { scroll.scrollTo(last.id, anchor: .bottom) }
     }
 
-    private func archive(thumbnail: CGSize) -> some View {
+    private var archive: some View {
         GeometryReader { viewport in
             if index.chronological.isEmpty {
                 VStack(spacing: 8) {
@@ -54,46 +52,47 @@ struct StandardGallery: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(index.chronological) { item in
-                            Button { selected = item } label: {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    RecordThumbnail(record: item, selected: selected == item, showsTimeOverlay: false)
-                                        .frame(width: thumbnail.width, height: thumbnail.height)
-                                    timestamp(for: item)
-                                }.contentShape(Rectangle())
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(index.days) { day in
+                            Section {
+                                ForEach(day.records) { item in
+                                    thumbnailRow(item)
+                                }
+                            } header: {
+                                Text(ArchiveText.groupDate.string(from: day.id))
+                                    .font(.system(size: 11, weight: .semibold)).monospacedDigit()
+                                    .lineLimit(1).minimumScaleFactor(0.85)
+                                    .padding(.top, day.id == index.days.first?.id ? 0 : 4)
+                                    .accessibilityAddTraits(.isHeader)
                             }
-                            .buttonStyle(.plain).id(item.id)
-                            .accessibilityLabel(item.kind.eventName + " " + ArchiveText.fullStamp.string(from: item.date))
-                            .accessibilityAddTraits(selected == item ? .isSelected : [])
                         }
                     }
+                    .frame(maxWidth: .infinity, minHeight: viewport.size.height, alignment: .topLeading)
                     .onGeometryChange(for: Bool.self) {
                         $0.frame(in: .named("recordList")).maxY <= viewport.size.height + 2
                     } action: { nearBottom = $0 }
                 }
+                .defaultScrollAnchor(nearBottom && selected == nil ? .bottom : nil)
                 .coordinateSpace(name: "recordList")
                 .scrollIndicators(.hidden)
             }
         }
     }
 
-    private func timestamp(for item: CaptureRecord) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 3) {
-                Image(systemName: item.kind.symbol)
-                Text(ArchiveText.day.string(from: item.date))
-                Text(ArchiveText.clock.string(from: item.date))
-            }.fixedSize()
+    private func thumbnailRow(_ item: CaptureRecord) -> some View {
+        Button { selected = item } label: {
             VStack(alignment: .leading, spacing: 1) {
-                Label(ArchiveText.day.string(from: item.date), systemImage: item.kind.symbol)
+                RecordThumbnail(record: item, selected: selected == item, mode: .standard)
                 Text(ArchiveText.clock.string(from: item.date))
-            }.fixedSize()
+                    .font(.system(size: 10, weight: .medium)).monospacedDigit().lineLimit(1)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 3)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
+            }.contentShape(Rectangle())
         }
-        .font(.system(size: 10, weight: .medium)).monospacedDigit()
-        .foregroundStyle(.white)
-        .padding(.horizontal, 3).padding(.vertical, 1)
-        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
+        .buttonStyle(.plain).id(item.id)
+        .accessibilityLabel(item.kind.eventName + " " + ArchiveText.fullStamp.string(from: item.date))
+        .accessibilityAddTraits(selected == item ? .isSelected : [])
     }
 
     private var viewer: some View {
