@@ -28,6 +28,9 @@ enum GalleryMode: String, CaseIterable {
 enum GalleryLayout {
     static let inset: CGFloat = 25
     static let gap: CGFloat = 12
+    static let filterButtonHeight: CGFloat = 28
+    static let filterVerticalInset: CGFloat = 7
+    static let filterHeight = filterButtonHeight + 2 * filterVerticalInset
     static let photoSize = CGSize(width: 132, height: 87)
     static func standardThumbnailWidth(in contentWidth: CGFloat) -> CGFloat {
         let fullWidth = max(165, (contentWidth - 74) * 0.36)
@@ -41,11 +44,11 @@ enum GalleryLayout {
     static func standardOpeningHeight(windowWidth: CGFloat) -> CGFloat {
         let contentWidth = windowWidth - inset * 2
         let viewerWidth = contentWidth - standardThumbnailWidth(in: contentWidth) - standardRulerWidth - gap * 2
-        return max(350, ceil(viewerWidth / defaultVideoAspect) + 8 + 34 + gap + standardBottomInset)
+        return max(350, ceil(viewerWidth / defaultVideoAspect) + 8 + filterHeight + gap + standardBottomInset)
     }
 
     static let rulerHeight: CGFloat = 31
     static let clockHeight: CGFloat = 13
-    // Header (8+34), two gaps, photo, ruler, clock spacing and bottom inset.
-    static let minimumHeight = 8 + 34 + gap * 2 + photoSize.height + rulerHeight + 3 + clockHeight + 12
+    // Header, two gaps, photo, ruler, clock spacing and bottom inset.
+    static let minimumHeight = 8 + filterHeight + gap * 2 + photoSize.height + rulerHeight + 3 + clockHeight + 12
 }

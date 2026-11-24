@@ -72,7 +72,9 @@ struct LibraryView: View {
                         chip("입력", leading: 0, trailing: 8, selected: kind == .screen) { kind = .screen }
                     }
                 }
-                .padding(3).background(.black.opacity(0.56), in: RoundedRectangle(cornerRadius: 11))
+                .padding(.horizontal, 10)
+                .padding(.vertical, GalleryLayout.filterVerticalInset)
+                .background(.black.opacity(0.56), in: RoundedRectangle(cornerRadius: 15))
             }
             .padding(.horizontal, GalleryLayout.inset).padding(.top, 8).padding(.bottom, GalleryLayout.gap)
             if let notice = model.notice {
@@ -125,7 +127,7 @@ struct LibraryView: View {
     private func chip(_ title: String, leading: CGFloat, trailing: CGFloat, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.system(size: 13, weight: .semibold))
-                .fixedSize().padding(.horizontal, 12).frame(height: 28)
+                .fixedSize().padding(.horizontal, 12).frame(height: GalleryLayout.filterButtonHeight)
                 .background(selected ? GlassInk.blue : GlassInk.capsule, in: UnevenRoundedRectangle(
                     topLeadingRadius: leading, bottomLeadingRadius: leading,
                     bottomTrailingRadius: trailing, topTrailingRadius: trailing))
