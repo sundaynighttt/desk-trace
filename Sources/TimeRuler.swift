@@ -5,6 +5,7 @@ struct TimeRuler: View {
     let pinned: CaptureRecord?
     let hover: (CaptureRecord?) -> Void
     let choose: (CaptureRecord) -> Void
+    var vertical = false
     @State private var pointer: Double?
     @State private var lastPosition = 0.5
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13,41 +14,50 @@ struct TimeRuler: View {
     private func record(at position: Double?) -> CaptureRecord? {
         position.flatMap(index.nearest).map { index.chronological[$0] }
     }
-    private func coordinate(_ x: CGFloat, width: CGFloat) -> Double {
-        min(1, max(0, x/max(1, width)))
+    private func coordinate(_ point: CGPoint, in size: CGSize) -> Double {
+        let offset = vertical ? point.y : point.x
+        return min(1, max(0, offset / max(1, vertical ? size.height : size.width)))
+    }
+
+    private var active: CaptureRecord? {
+        (vertical ? nil : record(at: pointer)) ?? pinned
     }
 
     var body: some View {
-        let active = index.chronological.isEmpty ? nil : record(at: pointer) ?? pinned
         VStack(spacing: 3) {
+            if vertical, let first = index.chronological.first { timeLabel(first) }
             GeometryReader { proxy in
                 WaveTicks(buckets: index.marks, center: lastPosition, gain: pointer == nil ? 0 : 1,
-                          currentPosition: active.map { index.fraction(of: $0.date) }, reduceMotion: reduceMotion)
+                          currentPosition: active.map { index.fraction(of: $0.date) }, reduceMotion: reduceMotion, vertical: vertical)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: lastPosition)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: pointer != nil)
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
                     switch phase {
-                    case .active(let point): updatePointer(coordinate(point.x, width: proxy.size.width))
+                    case .active(let point): updatePointer(coordinate(point, in: proxy.size))
                     case .ended: updatePointer(nil)
                     }
                 }
                 .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                    updatePointer(coordinate(value.location.x, width: proxy.size.width))
+                    updatePointer(coordinate(value.location, in: proxy.size))
                 }.onEnded { value in
-                    let t = coordinate(value.location.x, width: proxy.size.width)
+                    let t = coordinate(value.location, in: proxy.size)
                     if let item = record(at: t) { choose(item); keyboardFocus = true }
                 })
-            }.frame(height: GalleryLayout.rulerHeight)
-            HStack {
-                if let first = index.chronological.first, let last = index.chronological.last {
-                    let formatter = index.spansDays ? ArchiveText.stamp : ArchiveText.shortTime
-                    Text(formatter.string(from: first.date))
-                    Spacer()
-                    Text(formatter.string(from: last.date))
-                }
-            }.frame(height: GalleryLayout.clockHeight)
-            .font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.white.opacity(0.70))
+            }.frame(height: vertical ? nil : GalleryLayout.rulerHeight)
+            if vertical {
+                if let last = index.chronological.last { timeLabel(last) }
+            } else {
+                HStack {
+                    if let first = index.chronological.first, let last = index.chronological.last {
+                        let formatter = index.spansDays ? ArchiveText.stamp : ArchiveText.shortTime
+                        Text(formatter.string(from: first.date))
+                        Spacer()
+                        Text(formatter.string(from: last.date))
+                    }
+                }.frame(height: GalleryLayout.clockHeight)
+                .font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.white.opacity(0.70))
+            }
         }
         .foregroundStyle(.white)
         .focusable(!index.chronological.isEmpty).focused($keyboardFocus)
@@ -55,8 +65,8 @@ struct TimeRuler: View {
         .overlay(alignment: .bottom) {
             if keyboardFocus { Capsule().fill(.white.opacity(0.5)).frame(width: 20, height: 1) }
         }
-        .onKeyPress(.leftArrow) { step(-1); return .handled }
-        .onKeyPress(.rightArrow) { step(1); return .handled }
+        .onKeyPress(vertical ? .upArrow : .leftArrow) { step(-1); return .handled }
+        .onKeyPress(vertical ? .downArrow : .rightArrow) { step(1); return .handled }
         .onChange(of: index.chronological) { _, _ in
             if let pointer { hover(record(at: pointer)) }
         }
@@ -65,6 +75,15 @@ struct TimeRuler: View {
         .accessibilityValue(active.map { ArchiveText.clock.string(from: $0.date) + " " + $0.kind.eventName } ?? "\(index.chronological.count)장")
         .accessibilityAdjustableAction { direction in step(direction == .increment ? 1 : -1) }
         .accessibilityIdentifier("archive.timeline")
+    }
+
+    private func timeLabel(_ item: CaptureRecord) -> some View {
+        VStack(spacing: 1) {
+            if index.spansDays { Text(ArchiveText.day.string(from: item.date)) }
+            Text(ArchiveText.shortTime.string(from: item.date))
+        }
+        .font(.system(size: 10, weight: .medium, design: .monospaced))
+        .foregroundStyle(GlassInk.secondary).fixedSize()
     }
 
     private func updatePointer(_ fraction: Double?) {
@@ -79,7 +98,7 @@ struct TimeRuler: View {
     private func step(_ step: Int) {
         let records = index.chronological
         guard !records.isEmpty else { return }
-        let current = (record(at: pointer) ?? pinned).flatMap { records.firstIndex(of: $0) }
+        let current = active.flatMap { records.firstIndex(of: $0) }
         let target = current.map { min(records.count-1, max(0, $0+step)) } ?? (step > 0 ? 0 : records.count-1)
         updatePointer(nil)
         choose(records[target])
@@ -92,6 +111,7 @@ private struct WaveTicks: View, Animatable {
     var gain: Double
     let currentPosition: Double?
     let reduceMotion: Bool
+    let vertical: Bool
 
     var animatableData: AnimatablePair<Double, Double> {
         get { AnimatablePair(center, gain) }
@@ -101,8 +121,10 @@ private struct WaveTicks: View, Animatable {
     var body: some View {
         Canvas { ctx, size in
             let n = buckets.count
-            let width = size.width
-            let baseline = size.height-4
+            let width = vertical ? size.height : size.width
+            let height = vertical ? size.width : size.height
+            if vertical { ctx.concatenate(CGAffineTransform(a: 0, b: 1, c: 1, d: 0, tx: 0, ty: 0)) }
+            let baseline = height-4
             for i in 0..<n {
                 let t = Double(i)/Double(n-1)
                 let x = width*t
@@ -126,7 +148,7 @@ private struct WaveTicks: View, Animatable {
             if let currentPosition, width > 0 {
                 let markerWidth = min(CGFloat(6), width)
                 let x = min(max(0, width * currentPosition - markerWidth / 2), width - markerWidth)
-                let marker = CGRect(x: x, y: 0, width: markerWidth, height: size.height)
+                let marker = CGRect(x: x, y: 0, width: markerWidth, height: height)
                 ctx.fill(Path(roundedRect: marker, cornerRadius: markerWidth / 2),
                          with: .color(Color(red: 1, green: 0.84, blue: 0.04)))
             }
