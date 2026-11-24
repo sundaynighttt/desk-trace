@@ -28,6 +28,14 @@ enum GalleryLayout {
     static let inset: CGFloat = 25
     static let gap: CGFloat = 12
     static let photoSize = CGSize(width: 132, height: 87)
+    // Scale the full-size strip and its capped height together after snapping to even points.
+    static func standardThumbnailSize(in contentWidth: CGFloat) -> CGSize {
+        let fullWidth = max(165, (contentWidth - 74) * 0.36)
+        let fullHeight = min(142, fullWidth * 0.48)
+        let width = ((fullWidth / 3) / 2).rounded() * 2
+        return CGSize(width: width, height: fullHeight * width / fullWidth)
+    }
+
     static let rulerHeight: CGFloat = 31
     static let clockHeight: CGFloat = 13
     // Header (8+34), two gaps, photo, ruler, clock spacing and bottom inset.

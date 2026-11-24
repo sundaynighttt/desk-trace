@@ -4,7 +4,7 @@
 
 **macOS 14 이상 · Apple Silicon 및 Intel 지원**
 
-[자리기록 0.3.0 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.3.0/DeskTrace-0.3.0.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
+[자리기록 0.3.1 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.3.1/DeskTrace-0.3.1.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
 
 ![시험용 사진으로 본 일반 모드. 왼쪽에 선택한 사진이 크게 보이고 오른쪽에 촬영 시각이 표시된 목록과 세로 시간 눈금이 있습니다.](docs/gallery.png)
 
@@ -30,6 +30,8 @@
 
 <details>
 <summary>화면 설계 기준</summary>
+
+일반 모드의 오른쪽 저장 사진은 같은 창에서 0.3.0 사진 폭의 1/3에 가장 가까운 짝수 포인트로 표시합니다. 높이도 같은 비율로 줄입니다. 창 폭이 960포인트일 때 사진은 약 100 × 47포인트입니다. 촬영 날짜와 시각은 사진 바로 아래에 항상 표시하고, 좁은 창에서는 두 줄로 나눕니다.
 
 가운데 필터는 더 어두운 배경 하나로 감쌉니다. 전체 버튼 옆에는 움직임과 입력을 붙이고, 움직임 버튼의 오른쪽 모서리와 입력 버튼의 왼쪽 모서리만 둥글게 합니다. 미니 모드의 기본 창에는 약 7장의 사진이 보입니다. 상단 버튼과 사진, 사진과 물결 눈금 영역 사이의 간격은 각각 12포인트입니다. 사진 줄과 시간 눈금의 좌우 여백은 상단과 같은 25포인트입니다. 지난번 창을 높게 늘려 두었어도 다음 실행에서는 한 줄 높이로 시작하며, 연 뒤에는 크기를 조절할 수 있습니다. 기간 버튼 왼쪽과 설정 버튼 오른쪽에 같은 여백을 둡니다. 배경은 어두운 반투명이고, 선택한 필터는 파란색, 나머지는 반투명 회색입니다. 시스템에서 투명도 줄이기를 켜면 단색 배경을 사용하고, 동작 줄이기를 켜면 시간 눈금의 물결 높이를 고정합니다. 빈 목록, 필터 결과 없음, 한 장, 같은 시각의 여러 기록을 모두 지원합니다.
 
@@ -59,6 +61,6 @@
 ./scripts/package.sh
 ```
 
-빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.3.0.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
+빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.3.1.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
 
 WebP 라이브러리의 저작권 및 특허 안내는 `Notices/`와 앱 번들의 Resources에 포함됩니다.
