@@ -115,7 +115,13 @@ struct MotionGate {
     private var lastShot: TimeInterval?
     let interval: TimeInterval
 
-    init(minutes: Int) { interval = Double(min(60, max(10, minutes))) * 60 }
+    init(minutes: Int, lastMotion: Date? = nil) {
+        interval = Double(min(60, max(10, minutes))) * 60
+        if let lastMotion {
+            let elapsed = max(0, Date().timeIntervalSince(lastMotion))
+            lastShot = ProcessInfo.processInfo.systemUptime - elapsed
+        }
+    }
 
     mutating func shouldCapture(_ luma: [UInt8], at now: TimeInterval) -> Bool {
         defer { previous = luma }

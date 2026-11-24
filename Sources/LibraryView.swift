@@ -35,12 +35,12 @@ struct LibraryView: View {
                     if mode == .mini { ArchivePeriodMenu(period: $period, mode: .mini) }
                     Spacer()
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
-                        if desired != model.active { model.toggle() }
+                        if desired && !model.cameraOn && !model.inputOn { settings = true }
+                        else if desired != model.active { model.toggle() }
                     }))
                     .toggleStyle(.switch).controlSize(.small).tint(.blue)
                     .accessibilityLabel(model.active ? "감지 끄기" : "감지 켜기")
-                    .help(model.status)
-                    .disabled(!model.active && !model.cameraOn && !model.inputOn)
+                    .help(!model.cameraOn && !model.inputOn ? "설정에서 감지할 항목 선택" : model.status)
                     Button { settings.toggle() } label: {
                         Image(systemName: "gearshape").font(.system(size: 15)).frame(width: 28, height: 28, alignment: .trailing)
                             .contentShape(Rectangle())

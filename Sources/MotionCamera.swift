@@ -20,9 +20,9 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         self.onFailure = onFailure
     }
 
-    func detect(minutes: Int, onImage: @escaping @Sendable (CGImage, Date) -> Void) {
+    func detect(minutes: Int, lastMotion: Date?, onImage: @escaping @Sendable (CGImage, Date) -> Void) {
         Self.queue.async {
-            self.gate = MotionGate(minutes: minutes)
+            self.gate = MotionGate(minutes: minutes, lastMotion: lastMotion)
             self.onImage = onImage
         }
     }
