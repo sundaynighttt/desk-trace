@@ -8,6 +8,7 @@ trap 'rm -rf "$stage"' EXIT
 ditto --noextattr --norsrc "$app" "$stage/자리기록.app"
 codesign --verify --strict "$stage/자리기록.app"
 ln -s /Applications "$stage/Applications"
-image="$build/DeskTrace-0.1.0.dmg"
+version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$app/Contents/Info.plist")
+image="$build/DeskTrace-$version.dmg"
 hdiutil create -ov -volname '자리기록' -fs HFS+ -format UDZO -srcfolder "$stage" "$image"
 hdiutil verify "$image"

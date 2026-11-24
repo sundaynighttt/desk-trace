@@ -95,6 +95,34 @@ struct Checks {
         model.stop()
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         try expect(!model.active && model.notice == nil && model.records.count == 2, "stop cancels queued startup without a new record")
+        // Use fixed local dates so a test crossing midnight still exercises two distinct groups.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 9*3600)!
+        let firstDay = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: firstDay)!
+        func item(_ time: Date, _ kind: CaptureKind) -> CaptureRecord {
+            let name = "\(Int64(time.timeIntervalSince1970*1000))_\(kind.rawValue)_\(UUID().uuidString).webp"
+            return CaptureRecord(url: root.appendingPathComponent(name))!
+        }
+        let a = item(yesterday.addingTimeInterval(3600), .camera)
+        let b = item(firstDay.addingTimeInterval(60), .screen)
+        let c = item(firstDay.addingTimeInterval(7200), .camera)
+        let d = item(c.date, .screen)
+        let newestFirst = [d, c, b, a]
+        let collection = ArchiveIndex(newestFirst: newestFirst, day: nil, kind: nil, newest: true, calendar: calendar)
+        try expect(collection.displayed == [d,c,b,a] && collection.spansDays && collection.availableDates == [firstDay, yesterday], "local calendar groups newest dates first")
+        try expect(collection.chronological == [a,b,c,d] && collection.marks.reduce(0,+) == 4, "time ruler retains all events including collisions")
+        try expect(collection.nearest(to: -1) == 0 && collection.nearest(to: collection.fraction(of: b.date)) == 1, "ruler clamps start and locates a timestamp by elapsed time")
+        try expect(collection.chronological[collection.nearest(to: 2)!].date == c.date, "ruler clamps end and resolves simultaneous captures")
+        let reversed = ArchiveIndex(newestFirst: newestFirst, day: nil, kind: nil, newest: false, calendar: calendar)
+        try expect(reversed.displayed == [a,b,c,d] && reversed.chronological == collection.chronological, "sort reverses gallery while time flows left to right")
+        let one = ArchiveIndex(newestFirst: newestFirst, day: firstDay, kind: .camera, newest: true, calendar: calendar)
+        try expect(one.displayed == [c] && !one.spansDays && one.chronological == [c] && one.availableDates.count == 2, "date and kind filters intersect without losing other dates")
+        try expect(one.fraction(of: c.date) == 0.5 && one.nearest(to: 0) == 0 && one.nearest(to: 1) == 0, "single capture stays centered and selectable")
+        let noMatch = ArchiveIndex(newestFirst: newestFirst, day: yesterday, kind: .screen, newest: false, calendar: calendar)
+        try expect(noMatch.displayed.isEmpty && noMatch.nearest(to: 0.5) == nil && noMatch.marks.reduce(0,+) == 0, "empty result has no phantom ruler events")
+        let same = ArchiveIndex(newestFirst: [d,c], day: nil, kind: nil, newest: true, calendar: calendar)
+        try expect(same.displayed == [d,c] && same.fraction(of: d.date) == 0.5 && same.marks.max() == 2, "simultaneous captures keep distinct cards and share a central mark")
         if CommandLine.arguments.count == 2 {
             let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -102,9 +130,9 @@ struct Checks {
             model.inputOn = true
             _ = NSApplication.shared
             _ = NSApp.setActivationPolicy(.accessory)
-            try render(model, to: directory.appendingPathComponent("gallery.png"), width: 930, height: 620)
+            try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: 276)
             let empty = DeskModel(store: RecordStore(folder: root.appendingPathComponent("empty")), prefs: prefs)
-            try render(empty, to: directory.appendingPathComponent("empty.png"), width: 710, height: 480)
+            try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: 216)
         }
         print("Completed \(checks) checks.")
     }
