@@ -173,6 +173,23 @@ struct Checks {
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw AppProblem("화면 렌더링 실패") }
         view.cacheDisplay(in: view.bounds, to: rep)
+        // The fixture photos contain no yellow. Check the actual rendered playhead, including edge clipping.
+        let scale = CGFloat(rep.pixelsWide) / width
+        let markerX = Int((width - GalleryLayout.inset - 3) * scale)
+        func isYellow(_ x: Int, _ y: Int) -> Bool {
+            guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
+            return color.redComponent > 0.85 && color.greenComponent > 0.65 && color.blueComponent < 0.35
+        }
+        let rows = (0..<rep.pixelsHigh).filter { isYellow(markerX, $0) }
+        if model.records.isEmpty {
+            try expect(rows.isEmpty, "empty gallery has no latest-record playhead")
+        } else {
+            try expect(abs(CGFloat(rows.count) / scale - GalleryLayout.rulerHeight) <= 1,
+                       "latest-record playhead spans the ruler height")
+            let mid = rows[rows.count / 2]
+            let yellowWidth = (0..<rep.pixelsWide).filter { isYellow($0, mid) }.count
+            try expect(abs(CGFloat(yellowWidth) / scale - 6) <= 1, "one full-width yellow bar at the timeline edge")
+        }
         try rep.representation(using: .png, properties: [:])!.write(to: url)
         model.notice = "권한 설정을 확인해 주세요."
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
