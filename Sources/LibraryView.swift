@@ -68,8 +68,8 @@ struct LibraryView: View {
                     chip("전체", leading: 8, trailing: 8, selected: kind == nil) { kind = nil }
                         .accessibilityLabel("감지 종류 전체")
                     HStack(spacing: 0) {
-                        chip("움직임", leading: 0, trailing: 8, selected: kind == .camera) { kind = .camera }
-                        chip("입력", leading: 8, trailing: 0, selected: kind == .screen) { kind = .screen }
+                        chip("입력", leading: 0, trailing: 8, selected: kind == .screen) { kind = .screen }
+                        chip("움직임", leading: 8, trailing: 0, selected: kind == .camera) { kind = .camera }
                     }
                 }
                 .padding(3).background(.black.opacity(0.56), in: RoundedRectangle(cornerRadius: 11))

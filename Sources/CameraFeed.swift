@@ -5,6 +5,7 @@ import Combine
 @MainActor
 final class CameraFeed: ObservableObject {
     @Published private(set) var preview: AVCaptureSession?
+    @Published private(set) var displayRatio: CGFloat?
     @Published private(set) var previewIssue: String?
     private var camera: MotionCamera?
     private var startup: Task<Void, Error>?
@@ -64,7 +65,12 @@ final class CameraFeed: ObservableObject {
         if camera == nil {
             let id = UUID()
             cameraID = id
-            let source = MotionCamera { [weak self] reason in
+            let source = MotionCamera(onDisplayRatio: { [weak self] ratio in
+                Task { @MainActor in
+                    guard let self, self.cameraID == id else { return }
+                    self.displayRatio = ratio
+                }
+            }) { [weak self] reason in
                 Task { @MainActor in
                     guard let self, self.cameraID == id else { return }
                     self.releaseCamera()
@@ -100,6 +106,7 @@ final class CameraFeed: ObservableObject {
 
     private func releaseCamera() {
         cameraID = UUID()
+        displayRatio = nil
         preview = nil
         startup?.cancel()
         startup = nil

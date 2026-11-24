@@ -27,10 +27,23 @@ struct TimeRuler: View {
         VStack(spacing: 3) {
             if vertical, let first = index.chronological.first { timeLabel(first) }
             GeometryReader { proxy in
+                let position = active.map { index.fraction(of: $0.date) }
                 WaveTicks(buckets: index.marks, center: lastPosition, gain: pointer == nil ? 0 : 1,
-                          currentPosition: active.map { index.fraction(of: $0.date) }, reduceMotion: reduceMotion, vertical: vertical)
+                          currentPosition: vertical ? nil : position, reduceMotion: reduceMotion, vertical: vertical)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: lastPosition)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: pointer != nil)
+                .overlay {
+                    if vertical, let position {
+                        let length = min(16, max(0, proxy.size.width - 4))
+                        let thickness = min(2.5, proxy.size.height)
+                        Capsule().fill(.white.opacity(0.94))
+                            .frame(width: length, height: thickness)
+                            .position(x: proxy.size.width - 4 - length / 2,
+                                      y: min(max(thickness / 2, proxy.size.height * position), proxy.size.height - thickness / 2))
+                            .id(position).transition(.opacity)
+                    }
+                }
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: vertical ? position : nil)
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
                     switch phase {
@@ -133,7 +146,8 @@ private struct WaveTicks: View, Animatable {
                 let base: CGFloat = major ? 7 : (i.isMultiple(of: 3) ? 5 : 3)
                 let distance = (t-center)*width
                 let proximity = gain * exp(-pow(distance/28, 2)/2)
-                let extra = reduceMotion ? 0 : 21*proximity*(0.87+0.13*cos(distance/8))
+                let amplitude: CGFloat = vertical ? 4 : 21
+                let extra = reduceMotion ? 0 : amplitude * proximity * (0.87 + 0.13 * cos(distance / 8))
                 let eventHeight = events == 0 ? 0 : min(10, 5+log2(Double(events+1)))
                 let h = min(max(0, baseline-5), base+extra+eventHeight)
                 let color: Color
