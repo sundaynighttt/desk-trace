@@ -12,7 +12,7 @@ struct StandardGallery: View {
 
     var body: some View {
         GeometryReader { area in
-            let width = GalleryLayout.standardThumbnailWidth(in: area.size.width)
+            let width = GalleryLayout.standardThumbnailWidth(windowWidth: area.size.width)
             ScrollViewReader { scroll in
                 HStack(spacing: GalleryLayout.gap) {
                     viewer
@@ -39,8 +39,10 @@ struct StandardGallery: View {
                     }
                 }
             }
+            .padding(.leading, GalleryLayout.inset)
+            .padding(.trailing, GalleryLayout.standardTrailingInset)
         }
-        .padding(.horizontal, GalleryLayout.inset).padding(.bottom, GalleryLayout.standardBottomInset)
+        .padding(.bottom, GalleryLayout.standardBottomInset)
         .onAppear { feed.showPreview(true) }
         .onDisappear { feed.showPreview(false) }
     }
