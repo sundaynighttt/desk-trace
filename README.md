@@ -8,7 +8,7 @@
 
 **macOS 14 이상 · Apple Silicon 및 Intel 지원**
 
-[자리기록 0.3.13 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.3.13/DeskTrace-0.3.13.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
+[자리기록 0.4.0 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.4.0/DeskTrace-0.4.0.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
 
 ![시험용 사진으로 본 일반 모드. 왼쪽에 선택한 사진이 크게 보이고 오른쪽에 날짜별 사진 목록과 시작일·종료일을 표시한 세로 시간 눈금이 있습니다.](docs/gallery.png)
 
