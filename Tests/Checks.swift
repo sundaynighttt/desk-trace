@@ -77,14 +77,15 @@ struct Checks {
         let suite = "DeskTraceTests-" + UUID().uuidString
         let prefs = UserDefaults(suiteName: suite)!
         defer { prefs.removePersistentDomain(forName: suite) }
+        prefs.set(true, forKey: "newest") // Preference saved by 0.2.2.
         let model = DeskModel(store: store, prefs: prefs)
         try expect(model.records == [newer, older], "gallery restores valid records in newest-first order")
-        model.newest = false
-        try expect(model.ordered == [older, newer], "oldest-first order")
+        let gallery = ArchiveIndex(newestFirst: model.records, period: .all, kind: nil)
+        try expect(gallery.chronological == [older,newer], "old newest-first preference preserves records on the shared chronological axis")
         model.minutes = 37
         model.inputOn = false
         let restored = DeskModel(store: store, prefs: prefs)
-        try expect(restored.minutes == 37 && !restored.inputOn && !restored.newest && !restored.active, "settings persist and launch disarmed")
+        try expect(restored.minutes == 37 && !restored.inputOn && !restored.active, "settings persist and launch disarmed")
         try expect(Picture.thumbnail(at: older.url, pixels: 300) != nil, "gallery thumbnail decodes")
         model.cameraOn = false
         model.inputOn = false
@@ -109,20 +110,20 @@ struct Checks {
         let c = item(firstDay.addingTimeInterval(7200), .camera)
         let d = item(c.date, .screen)
         let newestFirst = [d, c, b, a]
-        let collection = ArchiveIndex(newestFirst: newestFirst, period: .all, kind: nil, newest: true, now: firstDay, calendar: calendar)
-        try expect(collection.displayed == [d,c,b,a] && collection.spansDays, "all dates include records from multiple days")
+        let collection = ArchiveIndex(newestFirst: newestFirst, period: .all, kind: nil, now: firstDay, calendar: calendar)
+        try expect(collection.chronological == [a,b,c,d] && collection.spansDays, "all dates include records from multiple days")
         try expect(collection.chronological == [a,b,c,d] && collection.marks.reduce(0,+) == 4, "time ruler retains all events including collisions")
         try expect(collection.nearest(to: -1) == 0 && collection.nearest(to: collection.fraction(of: b.date)) == 1, "ruler clamps start and locates a timestamp by elapsed time")
         try expect(collection.chronological[collection.nearest(to: 2)!].date == c.date, "ruler clamps end and resolves simultaneous captures")
-        let reversed = ArchiveIndex(newestFirst: newestFirst, period: .all, kind: nil, newest: false, now: firstDay, calendar: calendar)
-        try expect(reversed.displayed == [a,b,c,d] && reversed.chronological == collection.chronological, "sort reverses gallery while time flows left to right")
-        let one = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .camera, newest: true, now: firstDay, calendar: calendar)
-        try expect(one.displayed == [c] && !one.spansDays && one.chronological == [c], "today and camera filters intersect")
+        try expect(collection.nearest(to: 0) == 0 && collection.chronological.last?.date == d.date,
+                   "gallery ends at newest capture on the right, timeline starts at oldest on the left")
+        let one = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .camera, now: firstDay, calendar: calendar)
+        try expect(one.chronological == [c] && !one.spansDays, "today and camera filters intersect")
         try expect(one.fraction(of: c.date) == 0.5 && one.nearest(to: 0) == 0 && one.nearest(to: 1) == 0, "single capture stays centered and selectable")
-        let noMatch = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .screen, newest: false, now: yesterday, calendar: calendar)
-        try expect(noMatch.displayed.isEmpty && noMatch.nearest(to: 0.5) == nil && noMatch.marks.reduce(0,+) == 0, "empty result has no phantom ruler events")
-        let same = ArchiveIndex(newestFirst: [d,c], period: .all, kind: nil, newest: true, now: firstDay, calendar: calendar)
-        try expect(same.displayed == [d,c] && same.fraction(of: d.date) == 0.5 && same.marks.max() == 2, "simultaneous captures keep distinct cards and share a central mark")
+        let noMatch = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .screen, now: yesterday, calendar: calendar)
+        try expect(noMatch.chronological.isEmpty && noMatch.nearest(to: 0.5) == nil && noMatch.marks.reduce(0,+) == 0, "empty result has no phantom ruler events")
+        let same = ArchiveIndex(newestFirst: [d,c], period: .all, kind: nil, now: firstDay, calendar: calendar)
+        try expect(same.chronological == [c,d] && same.fraction(of: d.date) == 0.5 && same.marks.max() == 2, "simultaneous captures keep distinct cards and share a central mark")
         // Local midnights cross both a month boundary and the spring daylight-saving change.
         var pacific = Calendar(identifier: .gregorian)
         pacific.timeZone = TimeZone(identifier: "America/Los_Angeles")!
@@ -137,14 +138,14 @@ struct Checks {
         let beforeMonth = item(monthStart.date.addingTimeInterval(-1), .screen)
         let samples = [tomorrow, evening, today, weekStart, beforeWeek, monthStart, beforeMonth]
         func photos(_ period: ArchivePeriod, _ kind: CaptureKind? = nil, now: Date = anchor) -> [CaptureRecord] {
-            ArchiveIndex(newestFirst: samples, period: period, kind: kind, newest: true, now: now, calendar: pacific).displayed
+            ArchiveIndex(newestFirst: samples, period: period, kind: kind, now: now, calendar: pacific).chronological
         }
-        try expect(photos(.today) == [evening, today], "today includes local midnight and excludes next midnight")
-        try expect(photos(.week) == [evening, today, weekStart], "week covers seven local dates across a daylight-saving change")
-        try expect(photos(.month) == [evening, today, weekStart, beforeWeek, monthStart], "month includes thirty local dates across different calendar months")
-        try expect(photos(.month, .camera) == [today, weekStart, monthStart], "period combines with capture kind")
-        try expect(photos(.all) == samples, "all periods includes older records")
-        try expect(photos(.week, now: tomorrow.date) == [tomorrow, evening, today], "rolling period advances after midnight")
+        try expect(photos(.today) == [today, evening], "today includes local midnight and excludes next midnight")
+        try expect(photos(.week) == [weekStart, today, evening], "week covers seven local dates across a daylight-saving change")
+        try expect(photos(.month) == [monthStart, beforeWeek, weekStart, today, evening], "month includes thirty local dates across different calendar months")
+        try expect(photos(.month, .camera) == [monthStart, weekStart, today], "period combines with capture kind")
+        try expect(photos(.all) == Array(samples.reversed()), "all periods includes older records")
+        try expect(photos(.week, now: tomorrow.date) == [today, evening, tomorrow], "rolling period advances after midnight")
         if CommandLine.arguments.count == 2 {
             let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -152,9 +153,9 @@ struct Checks {
             model.inputOn = true
             _ = NSApplication.shared
             _ = NSApp.setActivationPolicy(.accessory)
-            try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: 276)
+            try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: GalleryLayout.minimumHeight)
             let empty = DeskModel(store: RecordStore(folder: root.appendingPathComponent("empty")), prefs: prefs)
-            try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: 216)
+            try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: GalleryLayout.minimumHeight)
         }
         print("Completed \(checks) checks.")
     }
@@ -165,13 +166,21 @@ struct Checks {
         let view = NSHostingView(rootView: LibraryView(model: model).environment(\.locale, Locale(identifier: "ko_KR")))
         let window = NSWindow(contentRect: rect, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view
-        window.setContentSize(rect.size)
+        window.setContentSize(CGSize(width: width, height: height + 190))
         window.orderFrontRegardless()
         RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+        try expect(abs(window.contentLayoutRect.height - height) <= 1, "opening a tall gallery fits its minimum at width " + String(Int(width)))
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw AppProblem("화면 렌더링 실패") }
         view.cacheDisplay(in: view.bounds, to: rep)
         try rep.representation(using: .png, properties: [:])!.write(to: url)
+        model.notice = "권한 설정을 확인해 주세요."
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        try expect(window.contentLayoutRect.height > height, "permission notice expands the compact window without clipping the ruler")
+        model.notice = nil
+        window.setContentSize(CGSize(width: width, height: height + 90))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        try expect(window.contentLayoutRect.height >= height + 89, "manual window height survives after opening at width " + String(Int(width)))
         window.orderOut(nil)
     }
 }

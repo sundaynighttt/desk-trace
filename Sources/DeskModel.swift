@@ -15,7 +15,6 @@ final class DeskModel: ObservableObject {
     @Published var cameraOn: Bool { didSet { prefs.set(cameraOn, forKey: "camera") } }
     @Published var inputOn: Bool { didSet { prefs.set(inputOn, forKey: "input") } }
     @Published var minutes: Int { didSet { prefs.set(minutes, forKey: "interval") } }
-    @Published var newest: Bool { didSet { prefs.set(newest, forKey: "newest") } }
     private let prefs: UserDefaults
     private let store: RecordStore
     private var generation = UUID()
@@ -25,11 +24,10 @@ final class DeskModel: ObservableObject {
     init(store: RecordStore = .standard, prefs: UserDefaults = .standard) {
         self.store = store
         self.prefs = prefs
-        prefs.register(defaults: ["camera": true, "input": true, "interval": 10, "newest": true])
+        prefs.register(defaults: ["camera": true, "input": true, "interval": 10])
         cameraOn = prefs.bool(forKey: "camera")
         inputOn = prefs.bool(forKey: "input")
         minutes = min(60, max(10, prefs.integer(forKey: "interval")))
-        newest = prefs.bool(forKey: "newest")
         reload()
     }
 
@@ -41,7 +39,6 @@ final class DeskModel: ObservableObject {
         case .armed: return "감지 켜짐"
         }
     }
-    var ordered: [CaptureRecord] { newest ? records : Array(records.reversed()) }
 
     func reload() {
         do { records = try store.readAll() } catch { notice = error.localizedDescription }
