@@ -33,11 +33,19 @@ struct Checks {
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         let session = feed.preview
         try expect(session != nil && starts == 1, "live preview starts one camera")
-        for (width, height) in [(320, 240), (640, 360)] {
+        try expect(feed.previewFrameDate(at: .now) == nil, "a camera session alone cannot show an on-air clock")
+        let firstFrame = Date(timeIntervalSince1970: 1_795_500_000)
+        for (index, dimensions) in [(320, 240), (640, 360)].enumerated() {
+            let (width, height) = dimensions
+            let received = firstFrame.addingTimeInterval(Double(index) * 5)
             var buffer: CVPixelBuffer?
             guard CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess,
                   let buffer, let source else { throw AppProblem("라이브 비율 시험 프레임 생성 실패") }
-            source.processFrame(buffer)
+            source.processFrame(buffer, receivedAt: received)
+            try expect(feed.previewFrameDate(at: received.addingTimeInterval(1)) == received,
+                       "only the arrival of a new frame advances the on-air clock")
+            try expect(feed.previewFrameDate(at: received.addingTimeInterval(2)) == nil,
+                       "a stalled stream loses its on-air timestamp")
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
             try expect(feed.displayRatio == CGFloat(width) / CGFloat(height), "live surface follows the received frame aspect before arming")
         }
@@ -49,6 +57,8 @@ struct Checks {
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         try expect(armed && starts == 1, "arming motion reuses the preview camera")
         feed.showPreview(false)
+        try expect(feed.previewFrameDate(at: firstFrame.addingTimeInterval(5)) == nil,
+                   "a hidden preview omits the clock even if detection keeps the camera open")
         feed.showPreview(true)
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         try expect(feed.preview === session && starts == 1, "toggling views preserves armed camera")

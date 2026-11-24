@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreImage
+import os
 
 // The session, gate and observers are confined to the serial camera queue.
 final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
@@ -7,6 +8,8 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     let session = AVCaptureSession()
     private let context = CIContext(options: [.cacheIntermediates: false])
     private var observers = [NSObjectProtocol]()
+    // The capture queue writes here; only the on-screen clock samples the value.
+    private let frameDate = OSAllocatedUnfairLock<Date?>(initialState: nil)
     private var lastSample = -Double.infinity
     private var gate: MotionGate?
     private var onImage: (@Sendable (CGImage, Date) -> Void)?
@@ -88,7 +91,15 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         processFrame(buffer)
     }
 
-    func processFrame(_ buffer: CVPixelBuffer) {
+    func recentFrameDate(at now: Date) -> Date? {
+        frameDate.withLock { received in
+            guard let received, abs(now.timeIntervalSince(received)) < 2 else { return nil }
+            return received
+        }
+    }
+
+    func processFrame(_ buffer: CVPixelBuffer, receivedAt date: Date = .now) {
+        frameDate.withLock { $0 = date }
         let size = CVImageBufferGetDisplaySize(buffer)
         if size.width > 0, size.height > 0, size != lastDisplaySize {
             lastDisplaySize = size
@@ -98,7 +109,6 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         guard let onImage, now - lastSample >= 0.18 else { return }
         lastSample = now
         guard gate?.shouldCapture(Self.luminance(buffer), at: now) == true else { return }
-        let date = Date()
         let source = CIImage(cvPixelBuffer: buffer)
         guard let image = context.createCGImage(source, from: source.extent) else {
             onFailure("카메라에서 사진을 만들지 못했습니다.")
