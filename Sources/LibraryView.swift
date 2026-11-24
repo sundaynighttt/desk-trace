@@ -176,6 +176,7 @@ private struct FilterIdentity: Hashable {
 struct MonitorSettings: View {
     @ObservedObject var model: DeskModel
     var body: some View {
+        let range = MotionGate.allowedMinutes
         VStack(alignment: .leading, spacing: 14) {
             Text("감지 설정").font(.title3.bold())
             VStack(alignment: .leading, spacing: 12) {
@@ -185,9 +186,10 @@ struct MonitorSettings: View {
                         Text("촬영 간격").foregroundStyle(.secondary)
                         Spacer()
                         Text("\(model.minutes)분").monospacedDigit()
-                        Stepper("촬영 간격", value: $model.minutes, in: 10...60).labelsHidden()
+                        Stepper("촬영 간격", value: $model.minutes, in: range).labelsHidden()
                     }
-                    Slider(value: Binding(get: { Double(model.minutes) }, set: { model.minutes = Int($0.rounded()) }), in: 10...60, step: 1)
+                    Slider(value: Binding(get: { Double(model.minutes) }, set: { model.minutes = Int($0.rounded()) }),
+                           in: Double(range.lowerBound)...Double(range.upperBound), step: 1)
                         .accessibilityLabel("촬영 간격").accessibilityValue("\(model.minutes)분")
                 }
                 Divider()

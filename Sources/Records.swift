@@ -157,12 +157,19 @@ enum Picture {
 }
 
 struct MotionGate {
+    static let allowedMinutes = 1...60
+    static let defaultMinutes = 10
+
+    static func clampedMinutes(_ minutes: Int) -> Int {
+        min(allowedMinutes.upperBound, max(allowedMinutes.lowerBound, minutes))
+    }
+
     private var previous: [UInt8]?
     private var lastShot: TimeInterval?
     let interval: TimeInterval
 
     init(minutes: Int, lastMotion: Date? = nil) {
-        interval = Double(min(60, max(10, minutes))) * 60
+        interval = Double(Self.clampedMinutes(minutes)) * 60
         if let lastMotion {
             let elapsed = max(0, Date().timeIntervalSince(lastMotion))
             lastShot = ProcessInfo.processInfo.systemUptime - elapsed
