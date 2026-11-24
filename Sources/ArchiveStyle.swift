@@ -17,7 +17,7 @@ enum ArchiveText {
 }
 
 extension CaptureKind {
-    var eventName: String { self == .camera ? "움직임" : "첫 입력" }
+    var eventName: String { self == .camera ? "움직임" : title }
 }
 
 enum GalleryMode: String, CaseIterable {

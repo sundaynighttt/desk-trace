@@ -1,11 +1,40 @@
 import AppKit
 import CWebP
 import ImageIO
+import UniformTypeIdentifiers
 
 enum CaptureKind: String {
     case camera, screen
-    var title: String { self == .camera ? "카메라 사진" : "화면 캡처" }
-    var symbol: String { self == .camera ? "camera" : "display" }
+    case inputCamera = "input-camera"
+    case screenGIF = "screen-gif"
+
+    var title: String {
+        switch self {
+        case .camera: return "카메라 사진"
+        case .screen: return "첫 화면"
+        case .inputCamera: return "입력 카메라 사진"
+        case .screenGIF: return "화면 GIF"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .camera, .inputCamera: return "camera"
+        case .screen: return "display"
+        case .screenGIF: return "film"
+        }
+    }
+
+    var fileExtension: String { self == .screenGIF ? "gif" : "webp" }
+
+    fileprivate var archiveOrder: Int {
+        switch self {
+        case .camera: return 0
+        case .inputCamera: return 1
+        case .screen: return 2
+        case .screenGIF: return 3
+        }
+    }
 }
 
 struct CaptureRecord: Identifiable, Equatable {
@@ -14,11 +43,16 @@ struct CaptureRecord: Identifiable, Equatable {
     let kind: CaptureKind
     var id: URL { url }
 
+    static func newer(_ lhs: Self, than rhs: Self) -> Bool {
+        if lhs.date != rhs.date { return lhs.date > rhs.date }
+        if lhs.kind != rhs.kind { return lhs.kind.archiveOrder > rhs.kind.archiveOrder }
+        return lhs.url.lastPathComponent > rhs.url.lastPathComponent
+    }
+
     init?(url: URL) {
-        guard url.pathExtension == "webp" else { return nil }
         let parts = url.deletingPathExtension().lastPathComponent.split(separator: "_")
         guard parts.count == 3, let stamp = Int64(parts[0]), let kind = CaptureKind(rawValue: String(parts[1])),
-              UUID(uuidString: String(parts[2])) != nil else { return nil }
+              url.pathExtension == kind.fileExtension, UUID(uuidString: String(parts[2])) != nil else { return nil }
         self.url = URL(fileURLWithPath: url.path, isDirectory: false).standardizedFileURL
         self.date = Date(timeIntervalSince1970: Double(stamp) / 1000)
         self.kind = kind
@@ -47,14 +81,26 @@ struct RecordStore {
         guard FileManager.default.fileExists(atPath: folder.path) else { return [] }
         return try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil,
                                                            options: .skipsHiddenFiles)
-            .compactMap(CaptureRecord.init).sorted { $0.url.lastPathComponent > $1.url.lastPathComponent }
+            .compactMap(CaptureRecord.init).sorted(by: CaptureRecord.newer)
     }
 
     func save(_ data: Data, kind: CaptureKind, at date: Date) throws -> CaptureRecord {
         try prepare()
+        let record = makeRecord(kind, at: date)
+        try data.write(to: record.url, options: .atomic)
+        return record
+    }
+
+    func saveGIF(from source: URL, at date: Date) throws -> CaptureRecord {
+        try prepare()
+        let record = makeRecord(.screenGIF, at: date)
+        try FileManager.default.moveItem(at: source, to: record.url)
+        return record
+    }
+
+    private func makeRecord(_ kind: CaptureKind, at date: Date) -> CaptureRecord {
         let millis = Int64((date.timeIntervalSince1970 * 1000).rounded())
-        let url = folder.appendingPathComponent("\(millis)_\(kind.rawValue)_\(UUID().uuidString).webp")
-        try data.write(to: url, options: .atomic)
+        let url = folder.appendingPathComponent("\(millis)_\(kind.rawValue)_\(UUID().uuidString).\(kind.fileExtension)")
         return CaptureRecord(url: url)!
     }
 }

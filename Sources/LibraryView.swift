@@ -191,7 +191,7 @@ struct MonitorSettings: View {
                         .accessibilityLabel("촬영 간격").accessibilityValue("\(model.minutes)분")
                 }
                 Divider()
-                Toggle(isOn: $model.inputOn) { Label("첫 입력 캡처", systemImage: "keyboard") }
+                Toggle(isOn: $model.inputOn) { Label("입력 기록", systemImage: "keyboard") }
             }.toggleStyle(.switch).disabled(model.active)
             if model.active {
                 Text([model.cameraStatus, model.inputStatus].filter { !$0.isEmpty }.joined(separator: " · "))

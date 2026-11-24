@@ -7,13 +7,13 @@
 <key>CFBundleDisplayName</key><string>자리기록</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleDevelopmentRegion</key><string>ko</string>
-<key>CFBundleShortVersionString</key><string>0.3.13</string>
-<key>CFBundleVersion</key><string>21</string>
+<key>CFBundleShortVersionString</key><string>0.4.0</string>
+<key>CFBundleVersion</key><string>22</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSCameraUsageDescription</key><string>일반 모드에서 라이브 영상을 보여주고, 움직임 감지를 켜면 카메라 사진을 이 Mac에 저장합니다.</string>
-<key>NSScreenCaptureUsageDescription</key><string>첫 입력이 감지되면 기본 화면 한 장을 이 Mac에 저장합니다.</string>
-<key>NSInputMonitoringUsageDescription</key><string>첫 키 입력이나 클릭 시점을 감지합니다. 입력한 내용은 저장하지 않습니다.</string>
+<key>NSCameraUsageDescription</key><string>일반 모드에서 라이브 영상을 보여주고, 움직임이나 입력 감지를 켜면 카메라 사진을 이 Mac에 저장합니다.</string>
+<key>NSScreenCaptureUsageDescription</key><string>입력이 감지되면 기본 화면의 첫 장과 이어지는 화면 GIF를 이 Mac에 저장합니다.</string>
+<key>NSInputMonitoringUsageDescription</key><string>키 입력이나 클릭 시점을 감지합니다. 입력한 내용은 저장하지 않습니다.</string>
 </dict></plist>

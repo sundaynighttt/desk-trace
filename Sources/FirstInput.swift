@@ -30,17 +30,14 @@ enum DisplayShot {
 
 struct PhysicalPressGate {
     let armedAt: UInt64
-    private(set) var fired = false
 
     static func isPhysical(transport: String?, virtual: Bool?) -> Bool {
         guard virtual != true, let transport, !transport.isEmpty else { return false }
         return transport.caseInsensitiveCompare("Virtual") != .orderedSame
     }
 
-    mutating func accept(time: UInt64, pressed: Bool) -> Bool {
-        guard pressed, time > armedAt, !fired else { return false }
-        fired = true
-        return true
+    func accept(time: UInt64, pressed: Bool) -> Bool {
+        pressed && time > armedAt
     }
 }
 
@@ -90,7 +87,7 @@ final class FirstInput {
     }
 
     private func receive(_ value: IOHIDValue) {
-        guard manager != nil, !gate.fired, IOHIDValueGetTimeStamp(value) > gate.armedAt else { return }
+        guard manager != nil, IOHIDValueGetTimeStamp(value) > gate.armedAt else { return }
         let element = IOHIDValueGetElement(value)
         let device = IOHIDElementGetDevice(element)
         let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String

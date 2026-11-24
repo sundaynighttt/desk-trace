@@ -141,7 +141,7 @@ struct StandardGallery: View {
         }
         .overlay(alignment: .topTrailing) {
             if let selected {
-                timestamp("저장 사진", date: selected.date)
+                timestamp(selected.kind == .camera ? "저장 사진" : selected.kind.title, date: selected.date)
             } else if feed.preview != nil {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     if let date = feed.previewFrameDate(at: .now) {

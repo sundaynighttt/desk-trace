@@ -103,6 +103,20 @@ struct RecordThumbnail: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+            .overlay(alignment: .topTrailing) {
+                if record.kind == .screenGIF || (mode == .standard && record.kind != .camera) {
+                    Group {
+                        if record.kind == .screenGIF { Text("GIF") }
+                        else { Image(systemName: record.kind.symbol) }
+                    }
+                        .font(.system(size: 9, weight: .semibold))
+                        .padding(.horizontal, 4).padding(.vertical, 2)
+                        .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 4))
+                        .padding(3)
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                }
+            }
             .clipShape(shape)
             .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: mode == .mini ? 3 : 2) } }
             .contentShape(shape)
@@ -120,13 +134,28 @@ struct FileImage: View {
     var contentMode: ContentMode = .fit
     @State private var image: NSImage?
     @State private var missing = false
+    @State private var playing = false
     var body: some View {
         Group {
-            if let image {
+            if playing {
+                GIFPlayback(url: url).accessibilityLabel("화면 GIF 재생 중")
+            } else if let image {
                 Image(nsImage: image).resizable().aspectRatio(contentMode: contentMode)
             } else if missing { Image(systemName: "photo.badge.exclamationmark") }
             else { ProgressView().controlSize(.small) }
-        }.task(id: url) {
+        }
+        .overlay(alignment: .bottomLeading) {
+            if detail && url.pathExtension == "gif" && image != nil {
+                Button { playing.toggle() } label: {
+                    Label(playing ? "GIF 멈추기" : "GIF 재생", systemImage: playing ? "pause.fill" : "play.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(.black.opacity(0.76), in: Capsule())
+                }.buttonStyle(.plain).padding(10)
+            }
+        }
+        .task(id: url) {
+            playing = false
             image = nil
             missing = false
             let result = await Task.detached(priority: .utility) { Picture.thumbnail(at: url, pixels: detail ? 1024 : 360) }.value
@@ -135,6 +164,24 @@ struct FileImage: View {
             missing = result == nil
         }
     }
+}
+
+private struct GIFPlayback: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> NSImageView {
+        let view = NSImageView()
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        view.image = NSImage(contentsOf: url)
+        view.animates = true
+        return view
+    }
+
+    func updateNSView(_ view: NSImageView, context: Context) {}
 }
 
 private struct CaptureDetail: View {
