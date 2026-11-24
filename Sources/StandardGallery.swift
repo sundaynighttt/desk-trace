@@ -11,11 +11,12 @@ struct StandardGallery: View {
 
     var body: some View {
         GeometryReader { area in
+            let thumbnail = GalleryLayout.standardThumbnailSize(in: area.size.width)
             ScrollViewReader { scroll in
                 HStack(spacing: GalleryLayout.gap) {
                     viewer
-                    archive
-                        .frame(width: max(165, (area.size.width - 74) * 0.36))
+                    archive(thumbnail: thumbnail)
+                        .frame(width: thumbnail.width)
                     TimeRuler(index: index, pinned: selected ?? index.chronological.last,
                               hover: { _ in }, choose: { item in
                         selected = item
@@ -43,7 +44,7 @@ struct StandardGallery: View {
         if let last = index.chronological.last { scroll.scrollTo(last.id, anchor: .bottom) }
     }
 
-    private var archive: some View {
+    private func archive(thumbnail: CGSize) -> some View {
         GeometryReader { viewport in
             if index.chronological.isEmpty {
                 VStack(spacing: 8) {
@@ -56,8 +57,11 @@ struct StandardGallery: View {
                     LazyVStack(spacing: 8) {
                         ForEach(index.chronological) { item in
                             Button { selected = item } label: {
-                                RecordThumbnail(record: item, selected: selected == item, showDate: true)
-                                    .frame(height: min(142, viewport.size.width * 0.48))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    RecordThumbnail(record: item, selected: selected == item, showsTimeOverlay: false)
+                                        .frame(width: thumbnail.width, height: thumbnail.height)
+                                    timestamp(for: item)
+                                }.contentShape(Rectangle())
                             }
                             .buttonStyle(.plain).id(item.id)
                             .accessibilityLabel(item.kind.eventName + " " + ArchiveText.fullStamp.string(from: item.date))
@@ -72,6 +76,24 @@ struct StandardGallery: View {
                 .scrollIndicators(.hidden)
             }
         }
+    }
+
+    private func timestamp(for item: CaptureRecord) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 3) {
+                Image(systemName: item.kind.symbol)
+                Text(ArchiveText.day.string(from: item.date))
+                Text(ArchiveText.clock.string(from: item.date))
+            }.fixedSize()
+            VStack(alignment: .leading, spacing: 1) {
+                Label(ArchiveText.day.string(from: item.date), systemImage: item.kind.symbol)
+                Text(ArchiveText.clock.string(from: item.date))
+            }.fixedSize()
+        }
+        .font(.system(size: 10, weight: .medium)).monospacedDigit()
+        .foregroundStyle(.white)
+        .padding(.horizontal, 3).padding(.vertical, 1)
+        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
     }
 
     private var viewer: some View {

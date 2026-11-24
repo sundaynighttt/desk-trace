@@ -254,6 +254,16 @@ struct Checks {
                    "new capture preserves historical selection and reading position")
         try click(CGPoint(x: frame.minX - 95, y: frame.minY + 25))
         try expect(try markerRow(snapshot()) == liveMark, "return to live restores the latest-record marker")
+        for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
+            window.setContentSize(CGSize(width: CGFloat(width), height: size.height))
+            settle()
+            try expect(abs(scroll.frame.width - CGFloat(expected)) < 0.01,
+                       "right archive uses even one-third width at " + String(width) + " points")
+            let thumbnail = GalleryLayout.standardThumbnailSize(in: CGFloat(width) - 2 * GalleryLayout.inset)
+            let previous = (CGFloat(width) - 2 * GalleryLayout.inset - 74) * 0.36
+            try expect(abs(thumbnail.height / thumbnail.width - min(142 / previous, 0.48)) < 0.00001,
+                       "thumbnail preserves the original aspect at " + String(width) + " points")
+        }
     }
 
     @MainActor

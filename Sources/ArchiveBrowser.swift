@@ -84,24 +84,26 @@ struct ArchiveBrowser: View {
 struct RecordThumbnail: View {
     let record: CaptureRecord
     let selected: Bool
-    var showDate = false
+    var showsTimeOverlay = true
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: showsTimeOverlay ? 12 : 6, style: .continuous)
         shape.fill(GlassInk.capsule)
             .overlay { FileImage(url: record.url, detail: false) }
             .clipShape(shape)
             .overlay(alignment: .bottomLeading) {
-                HStack(spacing: 5) {
-                    Image(systemName: record.kind.symbol)
-                    Text((showDate ? ArchiveText.fullStamp : ArchiveText.clock).string(from: record.date))
+                if showsTimeOverlay {
+                    HStack(spacing: 5) {
+                        Image(systemName: record.kind.symbol)
+                        Text(ArchiveText.clock.string(from: record.date))
+                    }
+                    .font(.system(size: 10, weight: .semibold)).monospacedDigit()
+                    .lineLimit(1).padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 5))
+                    .padding(6)
                 }
-                .font(.system(size: showDate ? 11 : 10, weight: .semibold)).monospacedDigit()
-                .lineLimit(1).padding(.horizontal, 6).padding(.vertical, 3)
-                .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 5))
-                .padding(6)
             }
-            .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: 3) } }
+            .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: showsTimeOverlay ? 3 : 2) } }
             .contentShape(shape)
     }
 }
