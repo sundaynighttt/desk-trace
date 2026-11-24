@@ -53,7 +53,7 @@ struct WindowGlass: NSViewRepresentable {
             // keeping the restored width and top edge and allowing later manual resizing.
             let old = window.frame
             let chrome = old.height - window.contentLayoutRect.height
-            let target = mode == .mini ? GalleryLayout.minimumHeight : 560
+            let target = mode == .mini ? GalleryLayout.minimumHeight : GalleryLayout.standardOpeningHeight(windowWidth: window.contentLayoutRect.width)
             let height = min(window.screen?.visibleFrame.height ?? .greatestFiniteMagnitude,
                              max(window.minSize.height, target + chrome))
             guard abs(old.height - height) >= 1 else { return }

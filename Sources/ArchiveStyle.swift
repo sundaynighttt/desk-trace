@@ -34,6 +34,16 @@ enum GalleryLayout {
         return ((fullWidth / 3) / 2).rounded() * 2
     }
 
+    static let standardRulerWidth: CGFloat = 52
+    static let defaultVideoAspect: CGFloat = 16.0 / 9.0
+    static let standardBottomInset: CGFloat = 16
+
+    static func standardOpeningHeight(windowWidth: CGFloat) -> CGFloat {
+        let contentWidth = windowWidth - inset * 2
+        let viewerWidth = contentWidth - standardThumbnailWidth(in: contentWidth) - standardRulerWidth - gap * 2
+        return max(350, ceil(viewerWidth / defaultVideoAspect) + 8 + 34 + gap + standardBottomInset)
+    }
+
     static let rulerHeight: CGFloat = 31
     static let clockHeight: CGFloat = 13
     // Header (8+34), two gaps, photo, ruler, clock spacing and bottom inset.

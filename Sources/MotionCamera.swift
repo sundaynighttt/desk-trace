@@ -10,9 +10,13 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private var lastSample = -Double.infinity
     private var gate: MotionGate?
     private var onImage: (@Sendable (CGImage, Date) -> Void)?
+    private var lastDisplaySize = CGSize.zero
+    private let onDisplayRatio: @Sendable (CGFloat) -> Void
     private let onFailure: @Sendable (String) -> Void
 
-    init(onFailure: @escaping @Sendable (String) -> Void) {
+    init(onDisplayRatio: @escaping @Sendable (CGFloat) -> Void,
+         onFailure: @escaping @Sendable (String) -> Void) {
+        self.onDisplayRatio = onDisplayRatio
         self.onFailure = onFailure
     }
 
@@ -80,8 +84,18 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        processFrame(buffer)
+    }
+
+    func processFrame(_ buffer: CVPixelBuffer) {
+        let size = CVImageBufferGetDisplaySize(buffer)
+        if size.width > 0, size.height > 0, size != lastDisplaySize {
+            lastDisplaySize = size
+            onDisplayRatio(size.width / size.height)
+        }
         let now = ProcessInfo.processInfo.systemUptime
-        guard let onImage, now - lastSample >= 0.18, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let onImage, now - lastSample >= 0.18 else { return }
         lastSample = now
         guard gate?.shouldCapture(Self.luminance(buffer), at: now) == true else { return }
         let date = Date()

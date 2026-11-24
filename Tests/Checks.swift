@@ -26,11 +26,20 @@ struct Checks {
     @MainActor
     static func main() throws {
         var starts = 0
-        let feed = CameraFeed(requestAccess: { true }, startCamera: { _ in starts += 1 })
+        var source: MotionCamera?
+        let feed = CameraFeed(requestAccess: { true }, startCamera: { source = $0; starts += 1 })
         feed.showPreview(true)
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         let session = feed.preview
         try expect(session != nil && starts == 1, "live preview starts one camera")
+        for (width, height) in [(320, 240), (640, 360)] {
+            var buffer: CVPixelBuffer?
+            guard CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &buffer) == kCVReturnSuccess,
+                  let buffer, let source else { throw AppProblem("라이브 비율 시험 프레임 생성 실패") }
+            source.processFrame(buffer)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            try expect(feed.displayRatio == CGFloat(width) / CGFloat(height), "live surface follows the received frame aspect before arming")
+        }
         var armed = false
         Task { @MainActor in
             try await feed.beginDetection(minutes: 10, onImage: { _, _ in }, onFailure: { _ in })
@@ -250,18 +259,36 @@ struct Checks {
             return rep
         }
         func markerRow(_ rep: NSBitmapImageRep) -> Int? {
-            let x = Int((size.width - GalleryLayout.inset - 14) * CGFloat(rep.pixelsWide) / size.width)
-            return (0..<rep.pixelsHigh).first {
-                guard let color = rep.colorAt(x: x, y: $0)?.usingColorSpace(.sRGB) else { return false }
-                return color.redComponent > 0.85 && color.greenComponent > 0.65 && color.blueComponent < 0.4
+            let scale = CGFloat(rep.pixelsWide) / host.bounds.width
+            let edge = host.bounds.width - GalleryLayout.inset - 4
+            return (0..<rep.pixelsHigh).first { row in
+                (2...14).allSatisfy { offset in
+                    let x = Int((edge - CGFloat(offset)) * scale)
+                    guard let color = rep.colorAt(x: x, y: row)?.usingColorSpace(.sRGB) else { return false }
+                    return min(color.redComponent, color.greenComponent, color.blueComponent) > 0.85
+                }
             }
         }
+        settle()
+        let expectedHeight = GalleryLayout.standardOpeningHeight(windowWidth: size.width)
+        try expect(abs(window.contentLayoutRect.height - expectedHeight) <= 1, "standard window opens at the fitted 16:9 viewer height")
+        // An explicitly taller window must keep the overlay on the photo.
+        window.setContentSize(size)
         settle()
         try expect(model.cameraFeed.previewIssue != nil && !model.active, "camera denial keeps standard archive available and detection off")
         guard let scroll = list(host), let document = scroll.documentView else { throw AppProblem("저장 목록 없음") }
         let viewport = scroll.contentView
         try expect(abs(viewport.bounds.maxY - document.bounds.maxY) < 2, "standard list opens at the newest record (viewport \(viewport.bounds.maxY), document \(document.bounds.maxY))")
-        guard let liveMark = try markerRow(snapshot("standard-live.png")) else { throw AppProblem("세로 시간 눈금 표시 없음") }
+        let liveImage = try snapshot("standard-live.png")
+        guard let liveMark = markerRow(liveImage) else { throw AppProblem("세로 시간 눈금 표시 없음") }
+        let scale = CGFloat(liveImage.pixelsWide) / host.bounds.width
+        let edge = host.bounds.width - GalleryLayout.inset - 4
+        let middleRow = liveMark + Int(scale)
+        let length = (0..<Int(30 * scale)).filter { offset in
+            guard let c = liveImage.colorAt(x: Int(edge * scale) - offset, y: middleRow)?.usingColorSpace(.sRGB) else { return false }
+            return min(c.redComponent, c.greenComponent, c.blueComponent) > 0.85
+        }.count
+        try expect(abs(CGFloat(length) / scale - 16) <= 1, "vertical playhead uses a short neutral 16-point tick")
         viewport.scroll(to: CGPoint(x: 0, y: 80))
         scroll.reflectScrolledClipView(viewport)
         settle()
@@ -269,15 +296,17 @@ struct Checks {
         let frame = scroll.convert(scroll.bounds, to: nil)
         try click(CGPoint(x: frame.midX, y: frame.midY))
         guard let picked = try markerRow(snapshot("standard-photo.png")) else { throw AppProblem("선택 시간 표시 없음") }
-        try expect(abs(picked - liveMark) > 20, "clicking an old thumbnail moves the yellow marker")
+        try expect(abs(picked - liveMark) > 20, "clicking an old thumbnail moves the short neutral marker")
         let offset = viewport.bounds.minY
         _ = try store.save(data, kind: .screen, at: Date().addingTimeInterval(1))
         model.reload()
         settle()
         try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
                    "new capture preserves historical selection and reading position (was \(offset), now \(viewport.bounds.minY))")
-        try click(CGPoint(x: frame.minX - 95, y: frame.minY + 25))
-        try expect(try markerRow(snapshot()) == liveMark, "return to live restores the latest-record marker")
+        let mediaWidth = frame.minX - GalleryLayout.gap - GalleryLayout.inset
+        let mediaBottom = frame.maxY - mediaWidth * 9 / 16
+        try click(CGPoint(x: frame.minX - 90, y: mediaBottom + 24))
+        try expect(try markerRow(snapshot()) == liveMark, "button over the photo restores live and the latest-record marker")
         for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
             window.setContentSize(CGSize(width: CGFloat(width), height: size.height))
             settle()

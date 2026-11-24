@@ -21,7 +21,7 @@ struct StandardGallery: View {
                         selected = item
                         scroll.scrollTo(item.id, anchor: .center)
                     }, vertical: true)
-                    .frame(width: 52)
+                    .frame(width: GalleryLayout.standardRulerWidth)
                 }
                 .onChange(of: index.chronological) { old, rows in
                     if let selected, !rows.contains(selected) {
@@ -33,7 +33,7 @@ struct StandardGallery: View {
                 }
             }
         }
-        .padding(.horizontal, GalleryLayout.inset).padding(.bottom, 16)
+        .padding(.horizontal, GalleryLayout.inset).padding(.bottom, GalleryLayout.standardBottomInset)
         .onAppear { feed.showPreview(true) }
         .onDisappear { feed.showPreview(false) }
     }
@@ -96,11 +96,12 @@ struct StandardGallery: View {
     }
 
     private var viewer: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14).fill(.black.opacity(0.56))
+        let ratio = selected.flatMap { Picture.aspectRatio(at: $0.url) } ?? feed.displayRatio ?? GalleryLayout.defaultVideoAspect
+        return Color.clear.aspectRatio(ratio, contentMode: .fit)
+        .overlay {
             if let selected {
                 FileImage(url: selected.url, detail: true).id(selected.url)
-                    .padding(1).accessibilityLabel(selected.kind.title)
+                    .accessibilityLabel(selected.kind.title)
             } else if let session = feed.preview {
                 CameraPreview(session: session).accessibilityLabel("라이브 카메라")
             } else if let issue = feed.previewIssue {
@@ -113,7 +114,9 @@ struct StandardGallery: View {
                 ProgressView("카메라 연결 중").controlSize(.small)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            if selected == nil && feed.preview == nil { Color.black.opacity(0.56) }
+        }
         .overlay(alignment: .topLeading) {
             HStack(spacing: 6) {
                 if let selected {
@@ -138,6 +141,7 @@ struct StandardGallery: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
