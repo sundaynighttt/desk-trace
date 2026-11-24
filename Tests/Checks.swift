@@ -138,11 +138,16 @@ struct Checks {
         try expect(collection.chronological[collection.nearest(to: 2)!].date == c.date, "ruler clamps end and resolves simultaneous captures")
         try expect(collection.nearest(to: 0) == 0 && collection.chronological.last?.date == d.date,
                    "gallery ends at newest capture on the right, timeline starts at oldest on the left")
+        try expect(collection.days.map(\.id) == [yesterday, firstDay] &&
+                   collection.days.map(\.records) == [[a], [b,c,d]],
+                   "one local day heading per group, including simultaneous captures")
         let one = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .camera, now: firstDay, calendar: calendar)
         try expect(one.chronological == [c] && !one.spansDays, "today and camera filters intersect")
         try expect(one.fraction(of: c.date) == 0.5 && one.nearest(to: 0) == 0 && one.nearest(to: 1) == 0, "single capture stays centered and selectable")
+        try expect(one.days.map(\.records) == [[c]], "filter keeps a heading for the first matching photo of the day")
         let noMatch = ArchiveIndex(newestFirst: newestFirst, period: .today, kind: .screen, now: yesterday, calendar: calendar)
         try expect(noMatch.chronological.isEmpty && noMatch.nearest(to: 0.5) == nil && noMatch.marks.reduce(0,+) == 0, "empty result has no phantom ruler events")
+        try expect(noMatch.days.isEmpty, "empty filter has no date headings")
         let same = ArchiveIndex(newestFirst: [d,c], period: .all, kind: nil, now: firstDay, calendar: calendar)
         try expect(same.chronological == [c,d] && same.fraction(of: d.date) == 0.5 && same.marks.max() == 2, "simultaneous captures keep distinct cards and share a central mark")
         // Local midnights cross both a month boundary and the spring daylight-saving change.
@@ -158,6 +163,15 @@ struct Checks {
         let monthStart = item(boundary(-29), .camera)
         let beforeMonth = item(monthStart.date.addingTimeInterval(-1), .screen)
         let samples = [tomorrow, evening, today, weekStart, beforeWeek, monthStart, beforeMonth]
+        let dayIndex = ArchiveIndex(newestFirst: [tomorrow, evening, today], period: .all, kind: nil, now: anchor, calendar: pacific)
+        try expect(dayIndex.days.map(\.records) == [[today, evening], [tomorrow]], "local midnight starts a new date group")
+        var saoPaulo = Calendar(identifier: .gregorian)
+        saoPaulo.timeZone = TimeZone(identifier: "America/Sao_Paulo")!
+        let shortDay = saoPaulo.date(from: DateComponents(year: 2018, month: 11, day: 4, hour: 12))!
+        let followingDay = saoPaulo.date(from: DateComponents(year: 2018, month: 11, day: 5, minute: 10))!
+        let shifted = ArchiveIndex(newestFirst: [item(followingDay, .camera), item(shortDay, .camera)],
+                                   period: .all, kind: nil, calendar: saoPaulo)
+        try expect(shifted.days.count == 2, "date group ends at local midnight after a skipped clock hour")
         func photos(_ period: ArchivePeriod, _ kind: CaptureKind? = nil, now: Date = anchor) -> [CaptureRecord] {
             ArchiveIndex(newestFirst: samples, period: period, kind: kind, now: now, calendar: pacific).chronological
         }
@@ -174,6 +188,16 @@ struct Checks {
             model.inputOn = true
             _ = NSApplication.shared
             _ = NSApp.setActivationPolicy(.accessory)
+            let ratioStore = RecordStore(folder: root.appendingPathComponent("ratios"))
+            for (w, h) in [(640, 360), (640, 400), (400, 400), (320, 480)] {
+                let record = try ratioStore.save(Picture.encode(fixture(w, h)), kind: .camera, at: now)
+                let tileWidth: CGFloat = 100
+                let tile = NSHostingView(rootView: RecordThumbnail(record: record, selected: false, mode: .standard)
+                    .frame(width: tileWidth))
+                let rendered = tile.fittingSize
+                try expect(abs(rendered.width - tileWidth) < 1 && abs(rendered.height - tileWidth * CGFloat(h) / CGFloat(w)) < 1,
+                           "standard thumbnail matches original " + String(w) + " × " + String(h))
+            }
             try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: GalleryLayout.minimumHeight)
             for minute in 1...16 {
                 _ = try store.save(data, kind: minute.isMultiple(of: 3) ? .screen : .camera,
@@ -236,7 +260,7 @@ struct Checks {
         try expect(model.cameraFeed.previewIssue != nil && !model.active, "camera denial keeps standard archive available and detection off")
         guard let scroll = list(host), let document = scroll.documentView else { throw AppProblem("저장 목록 없음") }
         let viewport = scroll.contentView
-        try expect(abs(viewport.bounds.maxY - document.bounds.maxY) < 2, "standard list opens at the newest record")
+        try expect(abs(viewport.bounds.maxY - document.bounds.maxY) < 2, "standard list opens at the newest record (viewport \(viewport.bounds.maxY), document \(document.bounds.maxY))")
         guard let liveMark = try markerRow(snapshot("standard-live.png")) else { throw AppProblem("세로 시간 눈금 표시 없음") }
         viewport.scroll(to: CGPoint(x: 0, y: 80))
         scroll.reflectScrolledClipView(viewport)
@@ -251,7 +275,7 @@ struct Checks {
         model.reload()
         settle()
         try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
-                   "new capture preserves historical selection and reading position")
+                   "new capture preserves historical selection and reading position (was \(offset), now \(viewport.bounds.minY))")
         try click(CGPoint(x: frame.minX - 95, y: frame.minY + 25))
         try expect(try markerRow(snapshot()) == liveMark, "return to live restores the latest-record marker")
         for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
@@ -259,10 +283,6 @@ struct Checks {
             settle()
             try expect(abs(scroll.frame.width - CGFloat(expected)) < 0.01,
                        "right archive uses even one-third width at " + String(width) + " points")
-            let thumbnail = GalleryLayout.standardThumbnailSize(in: CGFloat(width) - 2 * GalleryLayout.inset)
-            let previous = (CGFloat(width) - 2 * GalleryLayout.inset - 74) * 0.36
-            try expect(abs(thumbnail.height / thumbnail.width - min(142 / previous, 0.48)) < 0.00001,
-                       "thumbnail preserves the original aspect at " + String(width) + " points")
         }
     }
 

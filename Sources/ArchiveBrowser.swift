@@ -84,15 +84,15 @@ struct ArchiveBrowser: View {
 struct RecordThumbnail: View {
     let record: CaptureRecord
     let selected: Bool
-    var showsTimeOverlay = true
+    var mode: GalleryMode = .mini
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: showsTimeOverlay ? 12 : 6, style: .continuous)
-        shape.fill(GlassInk.capsule)
-            .overlay { FileImage(url: record.url, detail: false) }
+        let shape = RoundedRectangle(cornerRadius: mode == .mini ? 12 : 6, style: .continuous)
+        let tile = shape.fill(GlassInk.capsule)
+            .overlay { FileImage(url: record.url, detail: false, contentMode: mode == .mini ? .fill : .fit) }
             .clipShape(shape)
             .overlay(alignment: .bottomLeading) {
-                if showsTimeOverlay {
+                if mode == .mini {
                     HStack(spacing: 5) {
                         Image(systemName: record.kind.symbol)
                         Text(ArchiveText.clock.string(from: record.date))
@@ -103,21 +103,26 @@ struct RecordThumbnail: View {
                     .padding(6)
                 }
             }
-            .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: showsTimeOverlay ? 3 : 2) } }
+            .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: mode == .mini ? 3 : 2) } }
             .contentShape(shape)
+        if mode == .standard {
+            tile.aspectRatio(Picture.aspectRatio(at: record.url) ?? 1, contentMode: .fit)
+        } else {
+            tile
+        }
     }
 }
 
 struct FileImage: View {
     let url: URL
     let detail: Bool
+    var contentMode: ContentMode = .fit
     @State private var image: NSImage?
     @State private var missing = false
     var body: some View {
         Group {
             if let image {
-                if detail { Image(nsImage: image).resizable().scaledToFit() }
-                else { Image(nsImage: image).resizable().scaledToFill() }
+                Image(nsImage: image).resizable().aspectRatio(contentMode: contentMode)
             } else if missing { Image(systemName: "photo.badge.exclamationmark") }
             else { ProgressView().controlSize(.small) }
         }.task(id: url) {
