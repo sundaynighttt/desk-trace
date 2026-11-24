@@ -21,7 +21,7 @@ struct ArchiveBrowser: View {
                     VStack(spacing: 7) {
                         Text(isFiltered ? "이 조건에 맞는 기록이 없습니다" : "아직 촬영한 이미지가 없습니다")
                             .font(.system(size: 16, weight: .medium))
-                        if isFiltered { Button("필터 초기화", action: resetFilters).buttonStyle(.borderless) }
+                        if isFiltered { Button("전체 기록 보기", action: resetFilters).buttonStyle(.borderless) }
                         else {
                             Text(active ? "움직임이나 첫 입력을 기다리는 중입니다." : "감지를 켜면 이곳에 기록이 쌓입니다.")
                                 .font(.callout).foregroundStyle(GlassInk.secondary)
