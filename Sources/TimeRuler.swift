@@ -25,7 +25,7 @@ struct TimeRuler: View {
 
     var body: some View {
         VStack(spacing: 3) {
-            if vertical, let first = index.chronological.first { timeLabel(first) }
+            if vertical, let first = index.chronological.first { dateLabel(first) }
             GeometryReader { proxy in
                 let position = active.map { index.fraction(of: $0.date) }
                 WaveTicks(buckets: index.marks, center: lastPosition, gain: pointer == nil ? 0 : 1,
@@ -59,7 +59,7 @@ struct TimeRuler: View {
                 })
             }.frame(height: vertical ? nil : GalleryLayout.rulerHeight)
             if vertical {
-                if let last = index.chronological.last { timeLabel(last) }
+                if let last = index.chronological.last { dateLabel(last) }
             } else {
                 HStack {
                     if let first = index.chronological.first, let last = index.chronological.last {
@@ -90,13 +90,10 @@ struct TimeRuler: View {
         .accessibilityIdentifier("archive.timeline")
     }
 
-    private func timeLabel(_ item: CaptureRecord) -> some View {
-        VStack(spacing: 1) {
-            if index.spansDays { Text(ArchiveText.day.string(from: item.date)) }
-            Text(ArchiveText.shortTime.string(from: item.date))
-        }
-        .font(.system(size: 10, weight: .medium, design: .monospaced))
-        .foregroundStyle(GlassInk.secondary).fixedSize()
+    private func dateLabel(_ item: CaptureRecord) -> some View {
+        Text(ArchiveText.day.string(from: item.date))
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundStyle(GlassInk.secondary).fixedSize()
     }
 
     private func updatePointer(_ fraction: Double?) {

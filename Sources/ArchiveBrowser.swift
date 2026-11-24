@@ -85,28 +85,33 @@ struct RecordThumbnail: View {
     let record: CaptureRecord
     let selected: Bool
     var mode: GalleryMode = .mini
+    @State private var hovered = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: mode == .mini ? 12 : 6, style: .continuous)
         let tile = shape.fill(GlassInk.capsule)
             .overlay { FileImage(url: record.url, detail: false, contentMode: mode == .mini ? .fill : .fit) }
-            .clipShape(shape)
             .overlay(alignment: .bottomLeading) {
-                if mode == .mini {
+                if mode == .mini || hovered {
                     HStack(spacing: 5) {
-                        Image(systemName: record.kind.symbol)
+                        if mode == .mini { Image(systemName: record.kind.symbol) }
                         Text(ArchiveText.clock.string(from: record.date))
                     }
                     .font(.system(size: 10, weight: .semibold)).monospacedDigit()
-                    .lineLimit(1).padding(.horizontal, 6).padding(.vertical, 3)
+                    .lineLimit(1).padding(.horizontal, mode == .mini ? 6 : 3)
+                    .padding(.vertical, mode == .mini ? 3 : 1)
                     .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 5))
-                    .padding(6)
+                    .padding(mode == .mini ? 6 : 3)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
+            .clipShape(shape)
             .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: mode == .mini ? 3 : 2) } }
             .contentShape(shape)
         if mode == .standard {
             tile.aspectRatio(Picture.aspectRatio(at: record.url) ?? 1, contentMode: .fit)
+                .onHover { hovered = $0 }
         } else {
             tile
         }
