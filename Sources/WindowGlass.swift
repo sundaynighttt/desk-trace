@@ -4,9 +4,20 @@ import SwiftUI
 /// A behind-window material samples the desktop and other windows as the panel moves.
 struct WindowGlass: NSViewRepresentable {
     var reduceTransparency: Bool
+    var mode: GalleryMode
+    var onClose: () -> Void
 
     final class Backdrop: NSVisualEffectView {
         private var needsOpeningFit = true
+
+        var mode: GalleryMode = .mini {
+            didSet {
+                guard mode != oldValue else { return }
+                needsOpeningFit = true
+                DispatchQueue.main.async { [weak self] in self?.fitWhenVisible() }
+            }
+        }
+        var onClose: (() -> Void)?
 
         override func viewWillMove(toWindow newWindow: NSWindow?) {
             if let window { NotificationCenter.default.removeObserver(self, name: nil, object: window) }
@@ -29,7 +40,10 @@ struct WindowGlass: NSViewRepresentable {
             DispatchQueue.main.async { [weak self] in self?.fitWhenVisible() }
         }
 
-        @objc private func prepareForReopening() { needsOpeningFit = true }
+        @objc private func prepareForReopening() {
+            needsOpeningFit = true
+            onClose?()
+        }
 
         @objc private func fitWhenVisible() {
             guard needsOpeningFit, let window, window.isVisible else { return }
@@ -39,9 +53,13 @@ struct WindowGlass: NSViewRepresentable {
             // keeping the restored width and top edge and allowing later manual resizing.
             let old = window.frame
             let chrome = old.height - window.contentLayoutRect.height
-            let height = max(window.minSize.height, GalleryLayout.minimumHeight + chrome)
+            let target = mode == .mini ? GalleryLayout.minimumHeight : 560
+            let height = min(window.screen?.visibleFrame.height ?? .greatestFiniteMagnitude,
+                             max(window.minSize.height, target + chrome))
             guard abs(old.height - height) >= 1 else { return }
-            window.setFrame(NSRect(x: old.minX, y: old.maxY-height, width: old.width, height: height),
+            let visible = window.screen?.visibleFrame
+            let bottom = max(visible?.minY ?? old.maxY-height, old.maxY-height)
+            window.setFrame(NSRect(x: old.minX, y: bottom, width: old.width, height: height),
                             display: true)
         }
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -57,6 +75,8 @@ struct WindowGlass: NSViewRepresentable {
     }
 
     func updateNSView(_ view: Backdrop, context: Context) {
+        view.mode = mode
+        view.onClose = onClose
         view.alphaValue = reduceTransparency ? 0 : 0.63
     }
 }

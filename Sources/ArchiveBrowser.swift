@@ -36,22 +36,8 @@ struct ArchiveBrowser: View {
                                     pinned = item
                                     detail = item
                                 } label: {
-                                    RoundedRectangle(cornerRadius: 12).fill(GlassInk.capsule)
+                                    RecordThumbnail(record: item, selected: selected)
                                         .frame(width: GalleryLayout.photoSize.width, height: GalleryLayout.photoSize.height)
-                                        .overlay { FileImage(url: item.url, detail: false) }
-                                        .overlay(alignment: .bottomLeading) {
-                                            if selected {
-                                                Text(ArchiveText.clock.string(from: item.date) + " · " + item.kind.eventName)
-                                                    .font(.system(size: 10, weight: .semibold)).monospacedDigit()
-                                                    .lineLimit(1).padding(.horizontal, 5).padding(.vertical, 3)
-                                                    .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
-                                                    .padding(6)
-                                            }
-                                        }
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                        .overlay {
-                                            if selected { RoundedRectangle(cornerRadius: 12).strokeBorder(GlassInk.blue, lineWidth: 3) }
-                                        }
                                 }
                                 .buttonStyle(.plain).id(item.id)
                                 .onHover { over in
@@ -95,7 +81,32 @@ struct ArchiveBrowser: View {
     }
 }
 
-private struct FileImage: View {
+struct RecordThumbnail: View {
+    let record: CaptureRecord
+    let selected: Bool
+    var showDate = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        shape.fill(GlassInk.capsule)
+            .overlay { FileImage(url: record.url, detail: false) }
+            .clipShape(shape)
+            .overlay(alignment: .bottomLeading) {
+                HStack(spacing: 5) {
+                    Image(systemName: record.kind.symbol)
+                    Text((showDate ? ArchiveText.fullStamp : ArchiveText.clock).string(from: record.date))
+                }
+                .font(.system(size: showDate ? 11 : 10, weight: .semibold)).monospacedDigit()
+                .lineLimit(1).padding(.horizontal, 6).padding(.vertical, 3)
+                .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 5))
+                .padding(6)
+            }
+            .overlay { if selected { shape.strokeBorder(GlassInk.blue, lineWidth: 3) } }
+            .contentShape(shape)
+    }
+}
+
+struct FileImage: View {
     let url: URL
     let detail: Bool
     @State private var image: NSImage?
@@ -108,6 +119,8 @@ private struct FileImage: View {
             } else if missing { Image(systemName: "photo.badge.exclamationmark") }
             else { ProgressView().controlSize(.small) }
         }.task(id: url) {
+            image = nil
+            missing = false
             let result = await Task.detached(priority: .utility) { Picture.thumbnail(at: url, pixels: detail ? 1024 : 360) }.value
             guard !Task.isCancelled else { return }
             image = result

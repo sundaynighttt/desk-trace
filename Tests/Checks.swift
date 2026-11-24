@@ -25,6 +25,27 @@ struct Checks {
 
     @MainActor
     static func main() throws {
+        var starts = 0
+        let feed = CameraFeed(requestAccess: { true }, startCamera: { _ in starts += 1 })
+        feed.showPreview(true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        let session = feed.preview
+        try expect(session != nil && starts == 1, "live preview starts one camera")
+        var armed = false
+        Task { @MainActor in
+            try await feed.beginDetection(minutes: 10, onImage: { _, _ in }, onFailure: { _ in })
+            armed = true
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        try expect(armed && starts == 1, "arming motion reuses the preview camera")
+        feed.showPreview(false)
+        feed.showPreview(true)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        try expect(feed.preview === session && starts == 1, "toggling views preserves armed camera")
+        feed.endDetection()
+        try expect(feed.preview === session, "disarming preserves a visible preview")
+        feed.showPreview(false)
+        try expect(feed.preview == nil, "hiding final consumer releases preview")
         for format in [kCVPixelFormatType_32BGRA, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange] {
             var buffer: CVPixelBuffer?
             let result = CVPixelBufferCreate(nil, 128, 80, format, nil, &buffer)
@@ -154,10 +175,85 @@ struct Checks {
             _ = NSApplication.shared
             _ = NSApp.setActivationPolicy(.accessory)
             try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: GalleryLayout.minimumHeight)
+            for minute in 1...16 {
+                _ = try store.save(data, kind: minute.isMultiple(of: 3) ? .screen : .camera,
+                                   at: now.addingTimeInterval(Double(-minute * 60)))
+            }
+            let standard = DeskModel(store: store, prefs: prefs, cameraFeed: CameraFeed(requestAccess: { false }))
+            try checkStandard(standard, store: store, data: data, directory: directory)
             let empty = DeskModel(store: RecordStore(folder: root.appendingPathComponent("empty")), prefs: prefs)
             try render(empty, to: directory.appendingPathComponent("empty.png"), width: 680, height: GalleryLayout.minimumHeight)
         }
         print("Completed \(checks) checks.")
+    }
+
+    @MainActor
+    static func checkStandard(_ model: DeskModel, store: RecordStore, data: Data, directory: URL) throws {
+        let size = CGSize(width: 960, height: 560)
+        let host = NSHostingView(rootView: LibraryView(model: model, mode: .standard))
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+
+        func settle() { RunLoop.current.run(until: Date().addingTimeInterval(0.25)) }
+        func list(_ view: NSView) -> NSScrollView? {
+            if let scroller = view as? NSScrollView { return scroller }
+            return view.subviews.compactMap(list).first
+        }
+        func click(_ point: CGPoint) throws {
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: 1, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0) else {
+                    throw AppProblem("시험 창 클릭 생성 실패")
+                }
+                NSApp.postEvent(event, atStart: false)
+            }
+            let until = Date().addingTimeInterval(0.3)
+            while Date() < until {
+                if let event = NSApp.nextEvent(matching: .any, until: Date().addingTimeInterval(0.01), inMode: .default, dequeue: true) {
+                    NSApp.sendEvent(event)
+                }
+            }
+            settle()
+        }
+        func snapshot(_ name: String? = nil) throws -> NSBitmapImageRep {
+            host.layoutSubtreeIfNeeded()
+            guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { throw AppProblem("일반 화면 캡처 실패") }
+            host.cacheDisplay(in: host.bounds, to: rep)
+            if let name { try rep.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(name)) }
+            return rep
+        }
+        func markerRow(_ rep: NSBitmapImageRep) -> Int? {
+            let x = Int((size.width - GalleryLayout.inset - 14) * CGFloat(rep.pixelsWide) / size.width)
+            return (0..<rep.pixelsHigh).first {
+                guard let color = rep.colorAt(x: x, y: $0)?.usingColorSpace(.sRGB) else { return false }
+                return color.redComponent > 0.85 && color.greenComponent > 0.65 && color.blueComponent < 0.4
+            }
+        }
+        settle()
+        try expect(model.cameraFeed.previewIssue != nil && !model.active, "camera denial keeps standard archive available and detection off")
+        guard let scroll = list(host), let document = scroll.documentView else { throw AppProblem("저장 목록 없음") }
+        let viewport = scroll.contentView
+        try expect(abs(viewport.bounds.maxY - document.bounds.maxY) < 2, "standard list opens at the newest record")
+        guard let liveMark = try markerRow(snapshot("standard-live.png")) else { throw AppProblem("세로 시간 눈금 표시 없음") }
+        viewport.scroll(to: CGPoint(x: 0, y: 80))
+        scroll.reflectScrolledClipView(viewport)
+        settle()
+        try expect(try markerRow(snapshot()) == liveMark, "scrolling thumbnails retains live selection")
+        let frame = scroll.convert(scroll.bounds, to: nil)
+        try click(CGPoint(x: frame.midX, y: frame.midY))
+        guard let picked = try markerRow(snapshot("standard-photo.png")) else { throw AppProblem("선택 시간 표시 없음") }
+        try expect(abs(picked - liveMark) > 20, "clicking an old thumbnail moves the yellow marker")
+        let offset = viewport.bounds.minY
+        _ = try store.save(data, kind: .screen, at: Date().addingTimeInterval(1))
+        model.reload()
+        settle()
+        try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
+                   "new capture preserves historical selection and reading position")
+        try click(CGPoint(x: frame.minX - 95, y: frame.minY + 25))
+        try expect(try markerRow(snapshot()) == liveMark, "return to live restores the latest-record marker")
     }
 
     @MainActor

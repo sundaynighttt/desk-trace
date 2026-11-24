@@ -18,10 +18,11 @@ final class DeskModel: ObservableObject {
     private let prefs: UserDefaults
     private let store: RecordStore
     private var generation = UUID()
-    private var camera: MotionCamera?
+    let cameraFeed: CameraFeed
     private var input: FirstInput?
 
-    init(store: RecordStore = .standard, prefs: UserDefaults = .standard) {
+    init(store: RecordStore = .standard, prefs: UserDefaults = .standard, cameraFeed: CameraFeed? = nil) {
+        self.cameraFeed = cameraFeed ?? CameraFeed()
         self.store = store
         self.prefs = prefs
         prefs.register(defaults: ["camera": true, "input": true, "interval": 10])
@@ -76,13 +77,11 @@ final class DeskModel: ObservableObject {
             }
             pane = nil
             if cameraOn {
-                let reader = MotionCamera(minutes: minutes, onImage: { [weak self] image, date in
+                try await cameraFeed.beginDetection(minutes: minutes, onImage: { [weak self] image, date in
                     Task { @MainActor in await self?.save(image, kind: .camera, date: date, token: token) }
                 }, onFailure: { [weak self] reason in
-                    Task { @MainActor in self?.cameraFailed(reason, token: token) }
+                    self?.cameraFailed(reason, token: token)
                 })
-                camera = reader
-                try await reader.start()
                 guard generation == token else { return }
                 cameraStatus = "움직임 대기"
             }
@@ -122,7 +121,7 @@ final class DeskModel: ObservableObject {
     private func cameraFailed(_ reason: String, token: UUID) {
         guard generation == token else { return }
         if phase == .starting || !inputOn { stop() }
-        else { camera?.stop(); camera = nil; cameraStatus = "촬영 중단" }
+        else { cameraFeed.endDetection(); cameraStatus = "촬영 중단" }
         notice = reason
     }
 
@@ -148,8 +147,7 @@ final class DeskModel: ObservableObject {
         phase = .off
         input?.stop()
         input = nil
-        camera?.stop()
-        camera = nil
+        cameraFeed.endDetection()
         cameraStatus = ""
         inputStatus = ""
     }

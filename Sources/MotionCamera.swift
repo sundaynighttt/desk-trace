@@ -4,18 +4,30 @@ import CoreImage
 // The session, gate and observers are confined to the serial camera queue.
 final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     private static let queue = DispatchQueue(label: "DeskTrace.camera", qos: .userInitiated)
-    private let session = AVCaptureSession()
+    let session = AVCaptureSession()
     private let context = CIContext(options: [.cacheIntermediates: false])
     private var observers = [NSObjectProtocol]()
     private var lastSample = -Double.infinity
-    private var gate: MotionGate
-    private let onImage: @Sendable (CGImage, Date) -> Void
+    private var gate: MotionGate?
+    private var onImage: (@Sendable (CGImage, Date) -> Void)?
     private let onFailure: @Sendable (String) -> Void
 
-    init(minutes: Int, onImage: @escaping @Sendable (CGImage, Date) -> Void, onFailure: @escaping @Sendable (String) -> Void) {
-        gate = MotionGate(minutes: minutes)
-        self.onImage = onImage
+    init(onFailure: @escaping @Sendable (String) -> Void) {
         self.onFailure = onFailure
+    }
+
+    func detect(minutes: Int, onImage: @escaping @Sendable (CGImage, Date) -> Void) {
+        Self.queue.async {
+            self.gate = MotionGate(minutes: minutes)
+            self.onImage = onImage
+        }
+    }
+
+    func endDetection() {
+        Self.queue.async {
+            self.gate = nil
+            self.onImage = nil
+        }
     }
 
     func start() async throws {
@@ -52,7 +64,7 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         output.setSampleBufferDelegate(self, queue: Self.queue)
         for name in [AVCaptureSession.runtimeErrorNotification, AVCaptureSession.wasInterruptedNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
-                self?.onFailure("카메라 연결이 중단됐습니다. 연결 상태를 확인한 뒤 감지를 다시 켜 주세요.")
+                self?.onFailure("카메라 연결이 중단됐습니다. 카메라 연결 상태를 확인해 주세요.")
             })
         }
     }
@@ -69,9 +81,9 @@ final class MotionCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastSample >= 0.18, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let onImage, now - lastSample >= 0.18, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         lastSample = now
-        guard gate.shouldCapture(Self.luminance(buffer), at: now) else { return }
+        guard gate?.shouldCapture(Self.luminance(buffer), at: now) == true else { return }
         let date = Date()
         let source = CIImage(cvPixelBuffer: buffer)
         guard let image = context.createCGImage(source, from: source.extent) else {

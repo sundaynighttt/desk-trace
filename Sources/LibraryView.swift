@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LibraryView: View {
     @ObservedObject var model: DeskModel
+    @State var mode: GalleryMode = .mini
     @State private var period: ArchivePeriod = .week
     @State private var referenceDate = Date()
     @State private var kind: CaptureKind?
@@ -34,6 +35,22 @@ struct LibraryView: View {
                     .accessibilityLabel("조회 기간").accessibilityValue(period.rawValue)
                     .accessibilityIdentifier("archive.period")
                     Spacer()
+                    Menu {
+                        Picker("화면 모드", selection: $mode) {
+                            ForEach(GalleryMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }.pickerStyle(.inline).labelsHidden()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: mode == .mini ? "rectangle.compress.vertical" : "rectangle.split.2x1")
+                            Text(mode.rawValue)
+                            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                        }.font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10).frame(height: 29)
+                        .background(GlassInk.capsule, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                    .accessibilityLabel("화면 모드").accessibilityValue(mode.rawValue)
+                    .accessibilityIdentifier("archive.mode")
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
                         if desired != model.active { model.toggle() }
                     }))
@@ -47,12 +64,15 @@ struct LibraryView: View {
                     }.buttonStyle(.plain).accessibilityLabel("감지 설정").help("감지 설정")
                         .popover(isPresented: $settings, arrowEdge: .bottom) { MonitorSettings(model: model) }
                 }
-                HStack(spacing: 8) {
-                    chip("전체", selected: kind == nil) { kind = nil }
+                HStack(spacing: 5) {
+                    chip("전체", leading: 8, trailing: 8, selected: kind == nil) { kind = nil }
                         .accessibilityLabel("감지 종류 전체")
-                    chip("움직임", selected: kind == .camera) { kind = .camera }
-                    chip("첫 입력", selected: kind == .screen) { kind = .screen }
+                    HStack(spacing: 0) {
+                        chip("움직임", leading: 0, trailing: 8, selected: kind == .camera) { kind = .camera }
+                        chip("입력", leading: 8, trailing: 0, selected: kind == .screen) { kind = .screen }
+                    }
                 }
+                .padding(3).background(.black.opacity(0.56), in: RoundedRectangle(cornerRadius: 11))
             }
             .padding(.horizontal, GalleryLayout.inset).padding(.top, 8).padding(.bottom, GalleryLayout.gap)
             if let notice = model.notice {
@@ -68,18 +88,27 @@ struct LibraryView: View {
                 }.font(.callout).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, GalleryLayout.inset).padding(.vertical, 5)
             }
-            ArchiveBrowser(index: index, isFiltered: !model.records.isEmpty && (kind != nil || period != .all), active: model.active) {
-                period = .all
-                kind = nil
+            if mode == .standard {
+                StandardGallery(index: index, feed: model.cameraFeed,
+                                isFiltered: !model.records.isEmpty && (kind != nil || period != .all),
+                                resetFilters: { period = .all; kind = nil })
+            } else {
+                ArchiveBrowser(index: index, isFiltered: !model.records.isEmpty && (kind != nil || period != .all), active: model.active) {
+                    period = .all
+                    kind = nil
+                }
+                .id(FilterIdentity(period: period, kind: kind))
             }
-            .id(FilterIdentity(period: period, kind: kind))
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(minWidth: 680, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .fixedSize(horizontal: false, vertical: mode == .mini)
+        .frame(minWidth: 680, maxWidth: .infinity, minHeight: mode == .standard ? 350 : nil, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(.white)
         .background {
             ZStack {
-                WindowGlass(reduceTransparency: reduceTransparency)
+                WindowGlass(reduceTransparency: reduceTransparency, mode: mode) {
+                    model.cameraFeed.showPreview(false)
+                    mode = .mini
+                }
                 if reduceTransparency { Color(white: 0.14) }
                 else { Color.black.opacity(0.38) }
             }.ignoresSafeArea()
@@ -93,11 +122,14 @@ struct LibraryView: View {
         }
     }
 
-    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func chip(_ title: String, leading: CGFloat, trailing: CGFloat, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.system(size: 13, weight: .semibold))
-                .fixedSize().padding(.horizontal, 15).frame(height: 29)
-                .background(selected ? GlassInk.blue : GlassInk.capsule, in: RoundedRectangle(cornerRadius: 10))
+                .fixedSize().padding(.horizontal, 12).frame(height: 28)
+                .background(selected ? GlassInk.blue : GlassInk.capsule, in: UnevenRoundedRectangle(
+                    topLeadingRadius: leading, bottomLeadingRadius: leading,
+                    bottomTrailingRadius: trailing, topTrailingRadius: trailing))
+                .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
