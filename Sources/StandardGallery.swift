@@ -4,6 +4,7 @@ import SwiftUI
 struct StandardGallery: View {
     let index: ArchiveIndex
     @ObservedObject var feed: CameraFeed
+    @Binding var period: ArchivePeriod
     let isFiltered: Bool
     let resetFilters: () -> Void
     @State private var selected: CaptureRecord?
@@ -15,13 +16,18 @@ struct StandardGallery: View {
             ScrollViewReader { scroll in
                 HStack(spacing: GalleryLayout.gap) {
                     viewer
-                    archive.frame(width: width)
-                    TimeRuler(index: index, pinned: selected ?? index.chronological.last,
-                              hover: { _ in }, choose: { item in
-                        selected = item
-                        scroll.scrollTo(item.id, anchor: .center)
-                    }, vertical: true)
-                    .frame(width: GalleryLayout.standardRulerWidth)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ArchivePeriodMenu(period: $period)
+                        HStack(spacing: GalleryLayout.gap) {
+                            archive.frame(width: width)
+                            TimeRuler(index: index, pinned: selected ?? index.chronological.last,
+                                      hover: { _ in }, choose: { item in
+                                selected = item
+                                scroll.scrollTo(item.id, anchor: .center)
+                            }, vertical: true)
+                            .frame(width: GalleryLayout.standardRulerWidth)
+                        }
+                    }
                 }
                 .onChange(of: index.chronological) { old, rows in
                     if let selected, !rows.contains(selected) {
@@ -52,7 +58,7 @@ struct StandardGallery: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 4) {
+                    LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
                         ForEach(index.days) { day in
                             Section {
                                 ForEach(day.records) { item in
@@ -62,6 +68,9 @@ struct StandardGallery: View {
                                 Text(ArchiveText.groupDate.string(from: day.id))
                                     .font(.system(size: 11, weight: .semibold)).monospacedDigit()
                                     .lineLimit(1).minimumScaleFactor(0.85)
+                                    .padding(.horizontal, 2).padding(.vertical, 1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(.black.opacity(0.74), in: RoundedRectangle(cornerRadius: 3))
                                     .padding(.top, day.id == index.days.first?.id ? 0 : 4)
                                     .accessibilityAddTraits(.isHeader)
                             }

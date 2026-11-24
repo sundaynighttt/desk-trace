@@ -304,7 +304,8 @@ struct Checks {
         try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
                    "new capture preserves historical selection and reading position (was \(offset), now \(viewport.bounds.minY))")
         let mediaWidth = frame.minX - GalleryLayout.gap - GalleryLayout.inset
-        let mediaBottom = frame.maxY - mediaWidth * 9 / 16
+        let viewerTop = window.contentLayoutRect.maxY - 8 - GalleryLayout.filterHeight - GalleryLayout.gap
+        let mediaBottom = viewerTop - mediaWidth * 9 / 16
         try click(CGPoint(x: frame.minX - 90, y: mediaBottom + 24))
         try expect(try markerRow(snapshot()) == liveMark, "button over the photo restores live and the latest-record marker")
         for (width, expected) in [(680, 66), (961, 100), (1440, 158), (960, 100)] {
