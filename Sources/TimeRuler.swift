@@ -18,11 +18,11 @@ struct TimeRuler: View {
     }
 
     var body: some View {
-        let active = record(at: pointer) ?? pinned
+        let active = index.chronological.isEmpty ? nil : record(at: pointer) ?? pinned
         VStack(spacing: 3) {
             GeometryReader { proxy in
                 WaveTicks(buckets: index.marks, center: lastPosition, gain: pointer == nil ? 0 : 1,
-                          pin: pinned.map { index.fraction(of: $0.date) }, reduceMotion: reduceMotion)
+                          currentPosition: active.map { index.fraction(of: $0.date) }, reduceMotion: reduceMotion)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: lastPosition)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: pointer != nil)
                 .contentShape(Rectangle())
@@ -90,7 +90,7 @@ private struct WaveTicks: View, Animatable {
     let buckets: [Int]
     var center: Double
     var gain: Double
-    let pin: Double?
+    let currentPosition: Double?
     let reduceMotion: Bool
 
     var animatableData: AnimatablePair<Double, Double> {
@@ -113,9 +113,9 @@ private struct WaveTicks: View, Animatable {
                 let proximity = gain * exp(-pow(distance/28, 2)/2)
                 let extra = reduceMotion ? 0 : 21*proximity*(0.87+0.13*cos(distance/8))
                 let eventHeight = events == 0 ? 0 : min(10, 5+log2(Double(events+1)))
-                let h = min(size.height-2, base+extra+eventHeight)
+                let h = min(max(0, baseline-5), base+extra+eventHeight)
                 let color: Color
-                if proximity > 0.36 { color = GlassInk.blue }
+                if proximity > 0.36 { color = .white.opacity(0.95) }
                 else if events > 0 { color = .white.opacity(0.83) }
                 else { color = .white.opacity(major ? 0.54 : 0.32) }
                 let tickWidth: CGFloat = events > 0 ? 2.6 : 1.7
@@ -123,9 +123,12 @@ private struct WaveTicks: View, Animatable {
                                   y: max(0, baseline-h), width: tickWidth, height: min(baseline,h))
                 ctx.fill(Path(roundedRect: tick, cornerRadius: 1), with: .color(color))
             }
-            if let cursor = gain > 0.02 ? center : pin {
-                let x = min(max(2.5, width*cursor), width-2.5)
-                ctx.fill(Path(ellipseIn: CGRect(x: x-2.5, y: baseline-1, width: 5, height: 5)), with: .color(GlassInk.blue))
+            if let currentPosition, width > 0 {
+                let markerWidth = min(CGFloat(6), width)
+                let x = min(max(0, width * currentPosition - markerWidth / 2), width - markerWidth)
+                let marker = CGRect(x: x, y: 0, width: markerWidth, height: size.height)
+                ctx.fill(Path(roundedRect: marker, cornerRadius: markerWidth / 2),
+                         with: .color(Color(red: 1, green: 0.84, blue: 0.04)))
             }
         }
     }
