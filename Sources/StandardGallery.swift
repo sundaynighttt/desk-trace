@@ -130,7 +130,7 @@ struct StandardGallery: View {
                     Text(ArchiveText.fullStamp.string(from: selected.date)).monospacedDigit()
                 } else {
                     Image(systemName: "video")
-                    Text("라이브")
+                    Text(feed.preview == nil ? "카메라" : "온에어")
                 }
             }.font(.system(size: 12, weight: .semibold))
             .padding(.horizontal, 9).padding(.vertical, 6)
@@ -143,7 +143,9 @@ struct StandardGallery: View {
                         .font(.system(size: 12, weight: .semibold))
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(GlassInk.blue, in: Capsule())
-                }.buttonStyle(.plain).padding(10)
+                }.buttonStyle(.plain)
+                    .accessibilityIdentifier("archive.returnToLive")
+                    .padding(10)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
