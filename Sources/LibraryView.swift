@@ -3,7 +3,7 @@ import SwiftUI
 
 struct LibraryView: View {
     @ObservedObject var model: DeskModel
-    @State private var period: ArchivePeriod = .all
+    @State private var period: ArchivePeriod = .week
     @State private var referenceDate = Date()
     @State private var kind: CaptureKind?
     @State private var settings = false
@@ -14,12 +14,25 @@ struct LibraryView: View {
         VStack(spacing: 0) {
             ZStack {
                 HStack {
-                    HStack(spacing: 5) {
-                        ForEach(ArchivePeriod.allCases, id: \.self) { choice in
-                            chip(choice.rawValue, selected: period == choice, padding: 10) { period = choice }
-                                .accessibilityLabel("기간 " + choice.rawValue)
+                    Menu {
+                        Picker("조회 기간", selection: $period) {
+                            ForEach(ArchivePeriod.allCases, id: \.self) { choice in
+                                Text(choice.rawValue).tag(choice)
+                            }
+                        }.pickerStyle(.inline).labelsHidden()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(period.rawValue)
+                            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
                         }
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 12).frame(height: 29)
+                        .background(GlassInk.blue, in: RoundedRectangle(cornerRadius: 10))
+                        .contentShape(Rectangle())
                     }
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                    .accessibilityLabel("조회 기간").accessibilityValue(period.rawValue)
+                    .accessibilityIdentifier("archive.period")
                     Spacer()
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
                         if desired != model.active { model.toggle() }
@@ -55,7 +68,7 @@ struct LibraryView: View {
                 }.font(.callout).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, GalleryLayout.inset).padding(.vertical, 5)
             }
-            ArchiveBrowser(index: index, isFiltered: kind != nil || period != .all, active: model.active) {
+            ArchiveBrowser(index: index, isFiltered: !model.records.isEmpty && (kind != nil || period != .all), active: model.active) {
                 period = .all
                 kind = nil
             }
@@ -80,10 +93,10 @@ struct LibraryView: View {
         }
     }
 
-    private func chip(_ title: String, selected: Bool, padding: CGFloat = 15, action: @escaping () -> Void) -> some View {
+    private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.system(size: 13, weight: .semibold))
-                .fixedSize().padding(.horizontal, padding).frame(height: 29)
+                .fixedSize().padding(.horizontal, 15).frame(height: 29)
                 .background(selected ? GlassInk.blue : GlassInk.capsule, in: RoundedRectangle(cornerRadius: 10))
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
