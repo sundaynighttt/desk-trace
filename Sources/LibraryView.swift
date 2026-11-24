@@ -31,7 +31,7 @@ struct LibraryView: View {
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                     .accessibilityLabel("화면 모드").accessibilityValue(mode.rawValue)
                     .accessibilityIdentifier("archive.mode")
-                    if mode == .mini { ArchivePeriodMenu(period: $period) }
+                    if mode == .mini { ArchivePeriodMenu(period: $period, mode: .mini) }
                     Spacer()
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
                         if desired != model.active { model.toggle() }
@@ -120,6 +120,8 @@ struct LibraryView: View {
 
 struct ArchivePeriodMenu: View {
     @Binding var period: ArchivePeriod
+    let mode: GalleryMode
+    @State private var hovered = false
 
     var body: some View {
         Menu {
@@ -129,16 +131,32 @@ struct ArchivePeriodMenu: View {
                 }
             }.pickerStyle(.inline).labelsHidden()
         } label: {
-            HStack(spacing: 4) {
-                Text(period.rawValue)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            if mode == .standard {
+                HStack(spacing: 4) {
+                    Text(period.rawValue).font(.system(size: 12, weight: .medium))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(GlassInk.secondary)
+                }
+                .lineLimit(1)
+                .padding(.horizontal, GalleryLayout.archiveTextInset)
+                .frame(height: 24)
+                .background(hovered ? GlassInk.capsule : .clear, in: RoundedRectangle(cornerRadius: 4))
+                .contentShape(Rectangle())
+            } else {
+                HStack(spacing: 4) {
+                    Text(period.rawValue)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 8).frame(height: 29)
+                .background(GlassInk.blue, in: RoundedRectangle(cornerRadius: 10))
+                .contentShape(Rectangle())
             }
-            .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 8).frame(height: 29)
-            .background(GlassInk.blue, in: RoundedRectangle(cornerRadius: 10))
-            .contentShape(Rectangle())
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+        .fixedSize(horizontal: mode == .mini, vertical: true)
+        .onHover { if mode == .standard { hovered = $0 } }
         .accessibilityLabel("조회 기간").accessibilityValue(period.rawValue)
         .accessibilityIdentifier("archive.period")
     }
