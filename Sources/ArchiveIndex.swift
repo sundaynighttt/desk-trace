@@ -1,25 +1,38 @@
 import Foundation
 
+enum ArchivePeriod: String, CaseIterable {
+    case today = "오늘"
+    case week = "일주일"
+    case month = "한달"
+    case all = "전체"
+
+    func dateRange(relativeTo now: Date, in calendar: Calendar) -> Range<Date>? {
+        let days: Int
+        switch self {
+        case .today: days = 1
+        case .week: days = 7
+        case .month: days = 30
+        case .all: return nil
+        }
+        guard let today = calendar.dateInterval(of: .day, for: now),
+              let start = calendar.date(byAdding: .day, value: 1 - days, to: today.start) else { return nil }
+        return calendar.startOfDay(for: start)..<today.end
+    }
+}
+
 /// Input is the store's newest-first order. Rebuild only when the records or filters change.
 struct ArchiveIndex {
     let chronological: [CaptureRecord]
     let displayed: [CaptureRecord]
-    let availableDates: [Date]
     let marks: [Int]
     let spansDays: Bool
 
-    init(newestFirst: [CaptureRecord], day: Date?, kind: CaptureKind?, newest: Bool,
-         calendar: Calendar = .current) {
-        var dates = [Date]()
-        var filtered = [CaptureRecord]()
-        for record in newestFirst {
-            let date = calendar.startOfDay(for: record.date)
-            if dates.last != date { dates.append(date) }
-            if (day == nil || date == day), (kind == nil || record.kind == kind) {
-                filtered.append(record)
-            }
+    init(newestFirst: [CaptureRecord], period: ArchivePeriod, kind: CaptureKind?, newest: Bool,
+         now: Date = Date(), calendar: Calendar = .current) {
+        let range = period.dateRange(relativeTo: now, in: calendar)
+        let filtered = newestFirst.filter { record in
+            (range?.contains(record.date) ?? true) && (kind == nil || record.kind == kind)
         }
-        availableDates = dates
         let ascending = Array(filtered.reversed())
         chronological = ascending
         displayed = newest ? filtered : ascending

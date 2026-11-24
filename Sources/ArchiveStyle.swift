@@ -10,7 +10,6 @@ enum ArchiveText {
     }
     static let clock = formatter("HH:mm:ss")
     static let shortTime = formatter("HH:mm")
-    static let fullDay = formatter("yyyy.MM.dd")
     static let stamp = formatter("MM.dd  HH:mm")
 }
 

@@ -3,26 +3,23 @@ import SwiftUI
 
 struct LibraryView: View {
     @ObservedObject var model: DeskModel
-    @State private var day: Date?
+    @State private var period: ArchivePeriod = .all
+    @State private var referenceDate = Date()
     @State private var kind: CaptureKind?
     @State private var settings = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        let index = ArchiveIndex(newestFirst: model.records, day: day, kind: kind, newest: model.newest)
+        let index = ArchiveIndex(newestFirst: model.records, period: period, kind: kind, newest: model.newest, now: referenceDate)
         VStack(spacing: 0) {
             ZStack {
                 HStack {
-                    Menu {
-                        Button("전체 날짜") { day = nil }
-                        if !index.availableDates.isEmpty { Divider() }
-                        ForEach(index.availableDates, id: \.self) { date in
-                            Button(ArchiveText.fullDay.string(from: date)) { day = date }
+                    HStack(spacing: 5) {
+                        ForEach(ArchivePeriod.allCases, id: \.self) { choice in
+                            chip(choice.rawValue, selected: period == choice, padding: 10) { period = choice }
+                                .accessibilityLabel("기간 " + choice.rawValue)
                         }
-                    } label: {
-                        Label(day.map(ArchiveText.fullDay.string) ?? "전체 날짜", systemImage: "calendar")
-                            .font(.callout)
-                    }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("날짜 필터")
+                    }
                     Spacer()
                     Toggle("감지", isOn: Binding(get: { model.active }, set: { desired in
                         if desired != model.active { model.toggle() }
@@ -32,14 +29,16 @@ struct LibraryView: View {
                     .help(model.status)
                     .disabled(!model.active && !model.cameraOn && !model.inputOn)
                     Button { settings.toggle() } label: {
-                        Image(systemName: "gearshape").font(.system(size: 15)).frame(width: 28, height: 28)
+                        Image(systemName: "gearshape").font(.system(size: 15)).frame(width: 28, height: 28, alignment: .trailing)
+                            .contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("감지 설정").help("감지 설정")
                         .popover(isPresented: $settings, arrowEdge: .bottom) { MonitorSettings(model: model) }
-                }.padding(.leading, 60)
+                }
                 HStack(spacing: 8) {
-                    chip("전체", filter: nil)
-                    chip("움직임", filter: .camera)
-                    chip("첫 입력", filter: .screen)
+                    chip("전체", selected: kind == nil) { kind = nil }
+                        .accessibilityLabel("감지 종류 전체")
+                    chip("움직임", selected: kind == .camera) { kind = .camera }
+                    chip("첫 입력", selected: kind == .screen) { kind = .screen }
                 }
             }
             .padding(.horizontal, 25).padding(.top, 8).padding(.bottom, 8)
@@ -55,11 +54,11 @@ struct LibraryView: View {
                         .buttonStyle(.plain).accessibilityLabel("안내 닫기")
                 }.font(.callout).padding(.horizontal, 24).padding(.vertical, 5)
             }
-            ArchiveBrowser(index: index, isFiltered: kind != nil || day != nil, active: model.active) {
-                day = nil
+            ArchiveBrowser(index: index, isFiltered: kind != nil || period != .all, active: model.active) {
+                period = .all
                 kind = nil
             }
-            .id(FilterIdentity(day: day, kind: kind))
+            .id(FilterIdentity(period: period, kind: kind))
         }
         .frame(minWidth: 680, maxWidth: .infinity, minHeight: 216, maxHeight: 380)
         .foregroundStyle(.white)
@@ -71,21 +70,25 @@ struct LibraryView: View {
             }.ignoresSafeArea()
         }
         .environment(\.colorScheme, .dark)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in referenceDate = Date() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in referenceDate = Date() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            referenceDate = Date()
+            model.reload()
+        }
     }
 
-    private func chip(_ title: String, filter: CaptureKind?) -> some View {
-        let selected = kind == filter
-        return Button { kind = filter } label: {
+    private func chip(_ title: String, selected: Bool, padding: CGFloat = 15, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Text(title).font(.system(size: 13, weight: .semibold))
-                .padding(.horizontal, 15).frame(height: 29)
+                .fixedSize().padding(.horizontal, padding).frame(height: 29)
                 .background(selected ? GlassInk.blue : GlassInk.capsule, in: RoundedRectangle(cornerRadius: 10))
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
 private struct FilterIdentity: Hashable {
-    let day: Date?
+    let period: ArchivePeriod
     let kind: CaptureKind?
 }
 
