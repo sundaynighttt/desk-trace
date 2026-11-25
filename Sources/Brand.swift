@@ -47,13 +47,23 @@ enum DeskTraceBrand {
 }
 
 struct DeskTraceWindowTitle: View {
+    private let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+
     var body: some View {
         GeometryReader { geometry in
             let titleHeight = geometry.safeAreaInsets.top
             if titleHeight >= 18 {
                 HStack(spacing: 6) {
                     Image(nsImage: DeskTraceBrand.title).accessibilityHidden(true)
-                    Text("자리기록").font(.system(size: 13, weight: .semibold))
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("자리기록").font(.system(size: 13, weight: .semibold))
+                        if let version {
+                            Text(verbatim: "(\(version))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(GlassInk.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
                 }
                 .foregroundStyle(.white.opacity(0.94))
                 .frame(width: geometry.size.width, height: titleHeight)
