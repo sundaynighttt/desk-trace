@@ -13,6 +13,7 @@ struct LibraryView: View {
 
     var body: some View {
         let index = ArchiveIndex(newestFirst: model.records, period: period, kind: kind, now: referenceDate)
+        let filter = FilterIdentity(period: period, kind: kind)
         VStack(spacing: 0) {
             ZStack {
                 HStack {
@@ -76,7 +77,7 @@ struct LibraryView: View {
             if windowClosed {
                 Color.clear
             } else if mode == .standard {
-                StandardGallery(index: index, feed: model.cameraFeed, period: $period,
+                StandardGallery(index: index, feed: model.cameraFeed, period: $period, filter: filter,
                                 isFiltered: !model.records.isEmpty && (kind != nil || period != .all),
                                 resetFilters: { period = .all; kind = nil })
             } else {
@@ -84,7 +85,7 @@ struct LibraryView: View {
                     period = .all
                     kind = nil
                 }
-                .id(FilterIdentity(period: period, kind: kind))
+                .id(filter)
             }
         }
         .fixedSize(horizontal: false, vertical: mode == .mini)
@@ -169,7 +170,7 @@ struct ArchivePeriodMenu: View {
     }
 }
 
-private struct FilterIdentity: Hashable {
+struct FilterIdentity: Hashable {
     let period: ArchivePeriod
     let kind: CaptureKind?
 }
