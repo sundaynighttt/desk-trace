@@ -20,7 +20,7 @@ struct DeskTraceApp: App {
         MenuBarExtra {
             StatusMenu(model: model)
         } label: {
-            Image(systemName: model.active ? "viewfinder.circle.fill" : "viewfinder")
+            Image(nsImage: model.phase == .armed ? DeskTraceBrand.menuFilled : DeskTraceBrand.menuOutline)
                 .accessibilityLabel("자리기록 · " + model.status)
         }
     }

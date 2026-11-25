@@ -103,6 +103,7 @@ struct LibraryView: View {
                 else { Color.black.opacity(0.38) }
             }.ignoresSafeArea()
         }
+        .overlay { DeskTraceWindowTitle() }
         .environment(\.colorScheme, .dark)
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in referenceDate = Date() }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in referenceDate = Date() }
