@@ -17,7 +17,7 @@ done
 lipo -create "$BUILD_DIR/DeskTrace-arm64" "$BUILD_DIR/DeskTrace-x86_64" -output "$app/MacOS/DeskTrace"
 cp BuildSupport/Info.plist "$app/"
 cp Notices/* "$app/Resources/Notices/"
-xcrun swift -module-cache-path "$BUILD_DIR/modules" BuildSupport/Icon.swift "$BUILD_DIR/AppIcon.iconset"
+xcrun swift -module-cache-path "$BUILD_DIR/modules" BuildSupport/Icon.swift BuildSupport/AppIcon.png "$BUILD_DIR/AppIcon.iconset"
 iconutil -c icns "$BUILD_DIR/AppIcon.iconset" -o "$app/Resources/AppIcon.icns"
 codesign --force --sign - "$bundle"
 codesign --verify --strict "$bundle"
