@@ -230,7 +230,7 @@ struct Checks {
             }
             try render(model, to: directory.appendingPathComponent("gallery.png"), width: 1000, height: GalleryLayout.minimumHeight)
             for minute in 1...16 {
-                _ = try store.save(data, kind: minute.isMultiple(of: 3) ? .screen : .camera,
+                _ = try store.save(data, kind: .camera,
                                    at: now.addingTimeInterval(Double(-minute * 60)))
             }
             try checkStandard(store: store, prefs: prefs, data: data, directory: directory)
@@ -482,7 +482,7 @@ struct Checks {
         guard let picked = try markerRow(snapshot("standard-photo.png")) else { throw AppProblem("선택 시간 표시 없음") }
         try expect(abs(picked - liveMark) > 20, "clicking an old thumbnail moves the short neutral marker")
         let offset = viewport.bounds.minY
-        _ = try store.save(data, kind: .screen, at: Date().addingTimeInterval(1))
+        _ = try store.save(data, kind: .camera, at: Date().addingTimeInterval(1))
         model.reload()
         settle()
         try expect(abs(viewport.bounds.minY - offset) < 2 && abs((try markerRow(snapshot()) ?? -1000) - picked) < 10,
@@ -519,6 +519,26 @@ struct Checks {
         try expect(displayedSession(in: host) == nil && feed.preview === session, "a saved photo replaces the displayed preview")
         try clickLiveButton(for: reopenedList)
         try expect(displayedSession(in: host) === session && !model.active, "on-air button redisplays the same camera session")
+
+        let singleInput = ArchiveIndex(newestFirst: model.records, period: .week, kind: .screen)
+        try expect(singleInput.chronological.map(\.kind) == [.screen], "archive contains a single existing input screenshot")
+        try click(CGPoint(x: host.bounds.midX + 53,
+                          y: window.contentLayoutRect.maxY - 8 - GalleryLayout.filterHeight / 2))
+        guard let filteredList = list(host) else { throw AppProblem("입력 필터 사진 목록 없음") }
+        let filteredFrame = filteredList.convert(filteredList.bounds, to: nil)
+        let inputImage = try snapshot("standard-input.png")
+        let inputScale = CGFloat(inputImage.pixelsWide) / host.bounds.width
+        let sampleX = Int((filteredFrame.minX + filteredFrame.width / 4) * inputScale)
+        let firstRow = Int((host.bounds.maxY - filteredFrame.maxY) * inputScale)
+        let lastRow = Int((host.bounds.maxY - filteredFrame.minY) * inputScale)
+        let thumbnailVisible = (firstRow..<lastRow).contains { row in
+            guard let color = inputImage.colorAt(x: sampleX, y: row)?.usingColorSpace(.sRGB) else { return false }
+            return color.greenComponent > 0.75 && color.greenComponent - color.redComponent > 0.12
+        }
+        try expect(thumbnailVisible, "switching from all to input visibly renders the single screenshot")
+        try click(CGPoint(x: filteredFrame.midX, y: filteredFrame.maxY - 44))
+        try expect(displayedSession(in: host) == nil && feed.preview === session,
+                   "the single filtered screenshot opens in the main viewer")
     }
 
     @MainActor

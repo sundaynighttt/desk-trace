@@ -5,6 +5,7 @@ struct StandardGallery: View {
     let index: ArchiveIndex
     @ObservedObject var feed: CameraFeed
     @Binding var period: ArchivePeriod
+    let filter: FilterIdentity
     let isFiltered: Bool
     let resetFilters: () -> Void
     @State private var selected: CaptureRecord?
@@ -20,7 +21,10 @@ struct StandardGallery: View {
                         ArchivePeriodMenu(period: $period, mode: .standard)
                             .frame(width: width)
                         HStack(spacing: GalleryLayout.standardRulerGap) {
-                            archive.frame(width: width)
+                            archive
+                                // Recreate the scroll layout when the filter changes, even when one row survives.
+                                .id(filter)
+                                .frame(width: width)
                             TimeRuler(index: index, pinned: selected ?? index.chronological.last,
                                       hover: { _ in }, choose: { item in
                                 selected = item
