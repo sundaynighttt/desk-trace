@@ -8,7 +8,7 @@
 
 **macOS 14 이상 · Apple Silicon 및 Intel 지원**
 
-[자리기록 0.4.3 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.4.3/DeskTrace-0.4.3.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
+[자리기록 0.4.4 설치 파일 받기](https://github.com/sundaynighttt/desk-trace/releases/download/v0.4.4/DeskTrace-0.4.4.dmg) · [릴리스 기록](https://github.com/sundaynighttt/desk-trace/releases)
 
 ![시험용 사진으로 본 일반 모드. 왼쪽에 선택한 사진이 크게 보이고 오른쪽에 날짜별 사진 목록과 시작일·종료일을 표시한 세로 시간 눈금이 있습니다.](docs/gallery.png)
 
@@ -94,7 +94,8 @@
 | 0.4.0 | 입력 첫 순간의 카메라 사진과 화면을 남기고, 마지막 입력 10초 뒤 화면 GIF를 저장합니다. |
 | 0.4.1 | 카메라 움직임 촬영 간격을 최소 1분으로 설정할 수 있습니다. |
 | 0.4.2 | 빨간색과 검은색의 두 면을 반투명 바탕에 배치한 새 앱 아이콘을 적용했습니다. |
-| **0.4.3** | macOS 메뉴 막대에 채운 단색 로고를 적용하고, 일반·미니 창 맨 위 가운데에 로고와 앱 이름을 추가했습니다. |
+| 0.4.3 | macOS 메뉴 막대에 채운 단색 로고를 적용하고, 일반·미니 창 맨 위 가운데에 로고와 앱 이름을 추가했습니다. |
+| **0.4.4** | 일반 모드의 입력 필터에서 결과가 한 장일 때 오른쪽 목록이 비는 오류를 수정했습니다. |
 
 0.2.2부터 공개한 버전별 설치 파일과 변경 내용은 [공개 릴리스 목록](https://github.com/sundaynighttt/desk-trace/releases)에서 확인할 수 있습니다.
 
@@ -108,6 +109,6 @@
 ./scripts/package.sh
 ```
 
-빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.4.3.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
+빌드 시 공식 libwebp 소스를 내려받아 고정된 SHA-256 값을 확인합니다. 완성된 앱에는 인코더가 포함됩니다. 설치하는 맥에는 위 개발 도구가 필요하지 않습니다. 기본 산출물은 `.build/자리기록.app`과 `.build/DeskTrace-0.4.4.dmg`입니다. Apple Silicon과 Intel용 코드를 함께 포함합니다. 위 명령은 로컬 시험용 서명을 사용합니다. 공개 배포용 DMG는 빌드 후 `DESKTRACE_SIGN_IDENTITY`에 Developer ID Application 인증서를, `DESKTRACE_NOTARY_PROFILE`에 Apple 공증용 키체인 프로필 이름을 지정하고 `./scripts/release.sh`를 실행하면 생성됩니다. 스크립트는 앱과 DMG에 서명하고 Apple 공증을 받은 뒤 공증 확인표를 첨부해 검증합니다.
 
 WebP 라이브러리의 저작권 및 특허 안내는 `Notices/`와 앱 번들의 Resources에 포함됩니다.
