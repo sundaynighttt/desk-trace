@@ -22,30 +22,22 @@ enum DeskTraceBrand {
         return path
     }()
 
-    static let menuOutline = image(size: 18, template: true, filled: false)
-    static let menuFilled = image(size: 18, template: true, filled: true)
-    static let title = image(size: 15, template: false, filled: true)
+    static let menuIcon = image(size: 18, template: true)
+    static let title = image(size: 15, template: false)
 
-    private static func image(size: CGFloat, template: Bool, filled: Bool) -> NSImage {
+    private static func image(size: CGFloat, template: Bool) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size), flipped: true) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
             context.saveGState()
             defer { context.restoreGState() }
             context.translateBy(x: rect.minX, y: rect.minY)
             context.scaleBy(x: rect.width / 20, y: rect.height / 20)
-            context.setStrokeColor(NSColor.black.cgColor)
-            context.setLineWidth(1.15)
-            context.setLineJoin(.round)
             let red = NSColor(srgbRed: 1, green: 0.20, blue: 0.18, alpha: 1)
             let light = NSColor(srgbRed: 0.94, green: 0.94, blue: 0.97, alpha: 1)
             for (face, color) in [(largeFace, red), (smallFace, light)] {
                 context.addPath(face)
-                if filled {
-                    context.setFillColor((template ? NSColor.black : color).cgColor)
-                    context.fillPath()
-                } else {
-                    context.strokePath()
-                }
+                context.setFillColor((template ? NSColor.black : color).cgColor)
+                context.fillPath()
             }
             return true
         }
